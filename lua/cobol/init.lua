@@ -5,17 +5,20 @@ local M = {}
 
 local default_config = {
   enabled = true,
-  columns = { 7, 8, 12, 73 }, -- 标尺列：7 (Ind), 8 (Area A), 12 (Area B), 73 (Past Area B)
-  show_lines = true,          -- 使用纯字符细线标尺 (│)，零背景色
-  char = "│",                 -- 细线字符 (U+2502)
-  show_winbar = true,         -- 顶部打孔卡刻度
-  show_colorcolumn = false,   -- 禁用粗背景色块
-  highlight_overflow = true,  -- 72 列越界代码告警
+  columns = { 7, 8, 12, 73 },  -- 标尺列：7 (Ind), 8 (Area A), 12 (Area B), 73 (Past Area B)
+  show_lines = true,           -- 使用纯字符细线标尺 (│)，零背景色
+  char = "│",                  -- 细线字符 (U+2502)
+  show_winbar = true,          -- 顶部打孔卡刻度
+  show_breadcrumbs = true,     -- 顶部 Winbar 实时显示 Division > Section > Paragraph 面包屑
+  show_hierarchy_hint = true,  -- DATA DIVISION 行尾显示父级结构回溯 (← 05 PARENT)
+  highlight_levels = true,     -- 突出高亮 88 级条件名与 01 级记录
+  show_colorcolumn = false,    -- 禁用粗背景色块
+  highlight_overflow = true,   -- 72 列越界代码告警
   overflow_col = 72,
-  disable_indent_guide = true,-- 自动禁用当前 COBOL buffer 的通用缩进线（如 ibl）
-  smart_tab = true,           -- 智能对齐 Tab
-  smart_comments = true,      -- 第 7 列智能注释切换
-  keymaps = true,             -- 默认快捷键
+  disable_indent_guide = true, -- 自动禁用当前 COBOL buffer 的通用缩进线（如 ibl）
+  smart_tab = true,            -- 智能对齐 Tab
+  smart_comments = true,       -- 第 7 列智能注释切换
+  keymaps = true,              -- 默认快捷键
 }
 
 M.config = vim.deepcopy(default_config)
@@ -24,6 +27,7 @@ M.state = {
 }
 
 M.ns_ruler = vim.api.nvim_create_namespace("cobol_nvim_ruler")
+M.ns_hint = vim.api.nvim_create_namespace("cobol_nvim_hint")
 
 -- 初始化高亮组（融入 Fresh / Catppuccin / High Contrast 配色）
 function M.setup_highlights()
@@ -32,17 +36,29 @@ function M.setup_highlights()
     vim.api.nvim_set_hl(0, group, opts)
   end
 
-  -- 纯细线标尺配色：无背景色，使用清爽的淡钢蓝/冷灰前景色，与缩进线风格融合
+  -- 纯细线标尺配色：无背景色，使用清爽淡钢蓝，与缩进线风格融合
   set("CobolRulerLine", { fg = "#3b638c", bg = "NONE" })
   set("CobolRulerLineInd", { fg = "#4c78a8", bg = "NONE" })
 
-  -- Winbar 各区域配色
+  -- Winbar 标尺各区域配色
   set("CobolRulerBase", { fg = "#5c6370", bg = "#181c24" })
   set("CobolRulerSeq", { fg = "#6b7280", bg = "#181c24" })
   set("CobolRulerInd", { fg = "#e5c07b", bg = "#222730", bold = true })
   set("CobolRulerAreaA", { fg = "#61afef", bg = "#1f2735", bold = true })
   set("CobolRulerAreaB", { fg = "#98c379", bg = "#181c24" })
   set("CobolRulerIdent", { fg = "#e06c75", bg = "#251d22" })
+
+  -- Winbar 动态面包屑配色
+  set("CobolBreadcrumbProc", { fg = "#61afef", bg = "#1c212a", bold = true })
+  set("CobolBreadcrumbData", { fg = "#98c379", bg = "#1c212a", bold = true })
+  set("CobolBreadcrumbEnv", { fg = "#e5c07b", bg = "#1c212a", bold = true })
+  set("CobolBreadcrumbId", { fg = "#c678dd", bg = "#1c212a", bold = true })
+
+  -- DATA DIVISION 层级与 88 级高亮
+  set("CobolLevel88", { fg = "#c678dd", bold = true })        -- 88 标志号（鲜明紫）
+  set("CobolConditionName", { fg = "#e5c07b", bold = true })  -- 88 条件名（暖金黄）
+  set("CobolLevel01", { fg = "#61afef", bold = true })        -- 01 顶级记录号（亮蓝）
+  set("CobolHierarchyHint", { fg = "#5c6370", italic = true })-- 行尾宿主回溯虚词
 
   -- 72 列越界代码高亮（醒目告警）
   set("CobolColumnOverflow", {
@@ -53,13 +69,137 @@ function M.setup_highlights()
     bold = true,
   })
 
-  -- 兼容备用 ColorColumn（默认不使用）
+  -- 备用兼容 ColorColumn
   set("CobolRulerCol", {
     bg = "#232832",
   })
 end
 
--- 动态计算并返回 Winbar 标尺字符串（精准对齐代码列）
+-- 解析当前行在 COBOL 架构中的面包屑路径
+function M.get_breadcrumb(bufnr, cursor_row)
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  cursor_row = cursor_row or vim.api.nvim_win_get_cursor(0)[1]
+
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, cursor_row, false)
+  if not lines or #lines == 0 then
+    return nil, "CobolBreadcrumbProc"
+  end
+
+  local div, sec, para
+  local current_line = lines[cursor_row] or ""
+
+  -- 向上扫描定位当前所属的 Division, Section 和 Paragraph
+  for i = #lines, 1, -1 do
+    local line = lines[i]
+    -- 跳过固定格式注释行（第 7 列为 * 或 /）
+    if not (line:len() >= 7 and (line:sub(7, 7) == "*" or line:sub(7, 7) == "/")) then
+      local trimmed = vim.trim(line)
+
+      if not div then
+        local d = trimmed:match("^([%w%-]+)%s+DIVISION%s*%.")
+        if d then
+          div = d
+        end
+      end
+
+      if not sec then
+        local s = trimmed:match("^([%w%-]+)%s+SECTION%s*%.")
+        if s then
+          sec = s
+        end
+      end
+
+      if not para and (not div or div == "PROCEDURE") then
+        -- COBOL 段落名必须顶格写在 Area A（前导 7 个空格）并以 '.' 结尾
+        local p = line:match("^%s%s%s%s%s%s%s([%w%-]+)%.%s*$")
+        if not p then
+          p = trimmed:match("^([%w%-]+)%.%s*$")
+        end
+        if p and not p:find("SECTION") and not p:find("DIVISION") and not p:match("^END%-") and p ~= "EXIT" and p ~= "FILE-CONTROL" then
+          para = p
+        end
+      end
+    end
+
+    if div then
+      break
+    end
+  end
+
+  div = div or "COBOL"
+  local parts = {}
+  local hl_group = "CobolBreadcrumbProc"
+
+  if div == "PROCEDURE" then
+    hl_group = "CobolBreadcrumbProc"
+    table.insert(parts, "PROCEDURE")
+    if sec then
+      table.insert(parts, (sec:gsub("%-SECTION$", "")))
+    end
+    if para then
+      table.insert(parts, para)
+    end
+  elseif div == "DATA" then
+    hl_group = "CobolBreadcrumbData"
+    table.insert(parts, "DATA")
+    if sec then
+      table.insert(parts, (sec:gsub("%-SECTION$", "")))
+    end
+
+    -- 如果光标正在某字段上，显示其数据层级路径 (01 RECORD > 05 FIELD > 88 COND)
+    local cur_lvl, cur_name = current_line:match("^%s*(%d%d)%s+([%w%-]+)")
+    if cur_lvl then
+      local target_lvl = tonumber(cur_lvl)
+      local data_trail = { cur_lvl .. " " .. cur_name }
+      for j = cursor_row - 1, 1, -1 do
+        local l = lines[j]
+        local lvl_str, name = l:match("^%s*(%d%d)%s+([%w%-]+)")
+        if lvl_str then
+          local lvl = tonumber(lvl_str)
+          if lvl < target_lvl then
+            table.insert(data_trail, 1, name)
+            target_lvl = lvl
+            if lvl == 1 then
+              break
+            end
+          end
+        end
+        if l:find("SECTION%s*%.") or l:find("DIVISION%s*%.") then
+          break
+        end
+      end
+      if #data_trail > 0 then
+        table.insert(parts, table.concat(data_trail, " > "))
+      end
+    end
+  elseif div == "ENVIRONMENT" then
+    hl_group = "CobolBreadcrumbEnv"
+    table.insert(parts, "ENV")
+    if sec then
+      table.insert(parts, (sec:gsub("%-SECTION$", "")))
+    end
+  elseif div == "IDENTIFICATION" then
+    hl_group = "CobolBreadcrumbId"
+    table.insert(parts, "IDENT")
+    local prog_id = nil
+    for _, l in ipairs(lines) do
+      local p = l:match("PROGRAM%-ID%s*%.%s*([%w%-]+)")
+      if p then
+        prog_id = p
+        break
+      end
+    end
+    if prog_id then
+      table.insert(parts, prog_id)
+    end
+  else
+    table.insert(parts, div)
+  end
+
+  return table.concat(parts, " > "), hl_group
+end
+
+-- 动态计算并返回 Winbar 标尺 + 面包屑字符串（精准对齐代码列）
 function M.get_winbar()
   if not M.state.enabled or not M.config.show_winbar then
     return ""
@@ -81,7 +221,7 @@ function M.get_winbar()
   -- 8-11 : AREA A (4 chars: A...)
   -- 12-72: AREA B (61 chars: B .. 58 dots .. 72)
   -- 73-80: IDENT (8 chars: IDENT...)
-  local ruler = table.concat({
+  local ruler_parts = {
     "%#CobolRulerBase#" .. pad,
     "%#CobolRulerSeq#..SEQ.",
     "%#CobolRulerInd#*",
@@ -90,41 +230,145 @@ function M.get_winbar()
     string.rep(".", 58),
     "72",
     "%#CobolRulerIdent#IDENT...",
-    "%#Normal#",
-  })
+  }
 
-  return ruler
+  -- 如果开启了面包屑，在标尺右侧追加实时结构路径
+  if M.config.show_breadcrumbs then
+    local bufnr = vim.api.nvim_win_get_buf(win_id)
+    local cursor_row = vim.api.nvim_win_get_cursor(win_id)[1]
+    local crumb, hl_group = M.get_breadcrumb(bufnr, cursor_row)
+    if crumb and crumb ~= "" then
+      table.insert(ruler_parts, "  %#" .. hl_group .. "# [ " .. crumb .. " ]")
+    end
+  end
+
+  table.insert(ruler_parts, "%#Normal#")
+  return table.concat(ruler_parts)
 end
 
--- 清除缓冲区的越界高亮
-local function clear_overflow(bufnr, win_id)
+-- 更新 DATA DIVISION 当前光标行的宿主回溯虚拟提示 (← 05 PARENT)
+function M.update_hierarchy_hint(bufnr, win_id)
+  if not M.state.enabled or not M.config.show_hierarchy_hint then
+    return
+  end
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  win_id = win_id or vim.api.nvim_get_current_win()
+
+  vim.api.nvim_buf_clear_namespace(bufnr, M.ns_hint, 0, -1)
+
+  local pos = vim.api.nvim_win_get_cursor(win_id)
+  local row = pos[1]
+  local line = vim.api.nvim_get_current_line()
+
+  local cur_lvl, cur_name = line:match("^%s*(%d%d)%s+([%w%-]+)")
+  if not cur_lvl then
+    return
+  end
+
+  local lvl_num = tonumber(cur_lvl)
+  -- 仅对从属级别（88 或 02-49）寻找并展示上级结构
+  if lvl_num == 1 or lvl_num == 77 then
+    return
+  end
+
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, row - 1, false)
+  local parent_item, root_item
+  local target_lvl = lvl_num
+
+  for i = #lines, 1, -1 do
+    local l = lines[i]
+    local l_num_str, l_name = l:match("^%s*(%d%d)%s+([%w%-]+)")
+    if l_num_str then
+      local l_num = tonumber(l_num_str)
+      if l_num < target_lvl then
+        if not parent_item then
+          parent_item = l_num_str .. " " .. l_name
+        end
+        if l_num == 1 then
+          root_item = "01 " .. l_name
+          break
+        end
+        target_lvl = l_num
+      end
+    end
+    if l:find("SECTION%s*%.") or l:find("DIVISION%s*%.") then
+      break
+    end
+  end
+
+  if parent_item then
+    local hint_text = "  ← " .. parent_item
+    if root_item and root_item ~= parent_item then
+      hint_text = hint_text .. " (" .. root_item .. ")"
+    end
+
+    pcall(vim.api.nvim_buf_set_extmark, bufnr, M.ns_hint, row - 1, 0, {
+      virt_text = { { hint_text, "CobolHierarchyHint" } },
+      virt_text_pos = "eol",
+      hl_mode = "combine",
+    })
+  end
+end
+
+-- 清除缓冲区的匹配高亮
+local function clear_matches(win_id)
   if win_id and vim.api.nvim_win_is_valid(win_id) then
-    local match_id = vim.w[win_id].cobol_overflow_match
-    if match_id then
-      pcall(vim.fn.matchdelete, match_id, win_id)
-      vim.w[win_id].cobol_overflow_match = nil
+    local w = vim.w[win_id]
+    if w.cobol_overflow_match then
+      pcall(vim.fn.matchdelete, w.cobol_overflow_match, win_id)
+      w.cobol_overflow_match = nil
+    end
+    if w.cobol_lvl88_match then
+      pcall(vim.fn.matchdelete, w.cobol_lvl88_match, win_id)
+      w.cobol_lvl88_match = nil
+    end
+    if w.cobol_cond_match then
+      pcall(vim.fn.matchdelete, w.cobol_cond_match, win_id)
+      w.cobol_cond_match = nil
+    end
+    if w.cobol_lvl01_match then
+      pcall(vim.fn.matchdelete, w.cobol_lvl01_match, win_id)
+      w.cobol_lvl01_match = nil
     end
   end
 end
 
--- 添加第 72 列越界检测（非注释行超过 72 列的代码）
-local function setup_overflow(win_id)
-  if not M.state.enabled or not M.config.highlight_overflow then
-    return
-  end
-  if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+-- 设置匹配高亮（72列越界 + Level 88 + Level 01）
+local function setup_matches(win_id)
+  if not M.state.enabled or not win_id or not vim.api.nvim_win_is_valid(win_id) then
     return
   end
 
-  clear_overflow(nil, win_id)
+  clear_matches(win_id)
 
-  -- 正则解释：
-  -- ^.\{6}[^*/] -> 第 7 列不是 * 或 /（排除整行注释）
-  -- .\{-}\%>72v\S\+ -> 在第 72 屏幕列之后出现的非空代码字符
-  local pattern = [[^.\{6}[^*/].\{-}\%>72v\S\+]]
-  local ok, match_id = pcall(vim.fn.matchadd, "CobolColumnOverflow", pattern, 15, -1, { window = win_id })
-  if ok and match_id then
-    vim.w[win_id].cobol_overflow_match = match_id
+  -- 1. 72 列越界检测
+  if M.config.highlight_overflow then
+    local pattern_overflow = [[^.\{6}[^*/].\{-}\%>72v\S\+]]
+    local ok, id = pcall(vim.fn.matchadd, "CobolColumnOverflow", pattern_overflow, 15, -1, { window = win_id })
+    if ok and id then
+      vim.w[win_id].cobol_overflow_match = id
+    end
+  end
+
+  -- 2. Level 88 与 01 级结构高亮
+  if M.config.highlight_levels then
+    -- 88 级标志（优先于常规代码行）
+    local ok1, id1 = pcall(vim.fn.matchadd, "CobolLevel88", [[\<88\>]], 22, -1, { window = win_id })
+    if ok1 and id1 then
+      vim.w[win_id].cobol_lvl88_match = id1
+    end
+
+    -- 88 级条件名 (例如 88 EOF-YES)
+    local ok2, id2 = pcall(vim.fn.matchadd, "CobolConditionName", [[\%(\<88\>\s\+\)\@<=[A-Za-z0-9\-]\+]], 22, -1, { window = win_id })
+    if ok2 and id2 then
+      vim.w[win_id].cobol_cond_match = id2
+    end
+
+    -- 01 顶级记录号
+    local ok3, id3 = pcall(vim.fn.matchadd, "CobolLevel01", [[\<01\>\ze\s\+[A-Za-z0-9\-]\+]], 22, -1, { window = win_id })
+    if ok3 and id3 then
+      vim.w[win_id].cobol_lvl01_match = id3
+    end
   end
 end
 
@@ -228,13 +472,13 @@ function M.attach(bufnr)
     vim.opt_local.colorcolumn = ""
   end
 
-  -- 激活 Winbar 标尺
+  -- 激活 Winbar 标尺与面包屑
   if M.config.show_winbar and M.state.enabled then
     vim.b[bufnr].cobol_orig_winbar = vim.wo.winbar
     vim.wo.winbar = "%!v:lua.require'cobol'.get_winbar()"
   end
 
-  -- 禁用当前 COBOL 缓冲区的通用缩进线（如 indent-blankline），防止通用缩进线与 COBOL 标尺重叠干扰
+  -- 禁用当前 COBOL 缓冲区的通用缩进线（如 indent-blankline）
   if M.config.disable_indent_guide then
     local ok_ibl, ibl = pcall(require, "ibl")
     if ok_ibl and ibl.setup_buffer then
@@ -242,9 +486,12 @@ function M.attach(bufnr)
     end
   end
 
-  -- 设置越界高亮
+  -- 设置匹配高亮
   local win_id = vim.api.nvim_get_current_win()
-  setup_overflow(win_id)
+  setup_matches(win_id)
+
+  -- 更新宿主回溯提示
+  M.update_hierarchy_hint(bufnr, win_id)
 
   -- 注册快捷键
   if M.config.keymaps then
@@ -312,9 +559,10 @@ function M.detach(bufnr)
     end
   end
 
-  -- 清除越界告警
+  -- 清除匹配高亮与提示
   local win_id = vim.api.nvim_get_current_win()
-  clear_overflow(bufnr, win_id)
+  clear_matches(win_id)
+  vim.api.nvim_buf_clear_namespace(bufnr, M.ns_hint, 0, -1)
 end
 
 -- 全局开启
@@ -329,7 +577,7 @@ function M.enable()
     end
   end
   vim.cmd("redraw")
-  vim.notify("cobol.nvim: Enabled (Lines │ at cols 7, 8, 12, 73)", vim.log.levels.INFO)
+  vim.notify("cobol.nvim: Enabled", vim.log.levels.INFO)
 end
 
 -- 全局关闭
@@ -355,7 +603,7 @@ function M.toggle()
   end
 end
 
--- 注册基于虚拟文本的细线标尺 Decoration Provider（高性能视口渲染，零背景色）
+-- 注册基于虚拟文本的细线标尺 Decoration Provider
 local function setup_line_ruler()
   vim.api.nvim_set_decoration_provider(M.ns_ruler, {
     on_win = function(_, win, buf, toprow, botrow)
@@ -383,11 +631,9 @@ local function setup_line_ruler()
       for _, col in ipairs(M.config.columns) do
         local should_draw = false
         if line_len < col then
-          -- 短行或空行：在虚空列处绘制细线
           should_draw = true
         else
           local b = line:byte(col)
-          -- 所在列为前导空格或制表符时绘制细线，遇到代码字符则自动让位不遮挡
           if b == 32 or b == 9 then
             should_draw = true
           end
@@ -445,7 +691,19 @@ function M.setup(opts)
     callback = function(ev)
       local ft = vim.bo[ev.buf].filetype
       if ft == "cobol" or ft == "cbl" or ft == "cob" then
-        setup_overflow(vim.api.nvim_get_current_win())
+        local win_id = vim.api.nvim_get_current_win()
+        setup_matches(win_id)
+        M.update_hierarchy_hint(ev.buf, win_id)
+      end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
+    group = group,
+    callback = function(ev)
+      local ft = vim.bo[ev.buf].filetype
+      if ft == "cobol" or ft == "cbl" or ft == "cob" then
+        M.update_hierarchy_hint(ev.buf, vim.api.nvim_get_current_win())
       end
     end,
   })
