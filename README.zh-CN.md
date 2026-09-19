@@ -24,6 +24,7 @@
 | 结构与导航 | Winbar 面包屑、折叠、`gd`、`gf`、`K` | 快速浏览 Division、段落、字段和 Copybook |
 | 数据布局 | PIC 和记录大小估算，支持 `OCCURS`、`REDEFINES` | 帮助理解记录在内存中的组织方式 |
 | 代码补全 | COBOL 关键字、动词、子句、代码片段、数据名、段落和 Copybook | 减少重复输入，也帮助你熟悉 COBOL 的词汇和程序结构 |
+| 上下文信息 | 格式、源码区域、面包屑、当前 PIC 和记录大小 | 移动光标时始终看到最重要的 COBOL 上下文 |
 | 诊断 | 异步执行 `cobc -fsyntax-only`，集成 Quickfix | 编辑时发现语法错误，不阻塞界面 |
 | 编辑辅助 | 注释切换、智能 Tab、保留字大小写格式化 | 减少固定格式代码中的重复操作 |
 | 可选大纲 | Aerial（Neovim 代码结构侧边栏）和 COBOL backend | 提供可搜索的程序结构树 |
@@ -176,3 +177,5 @@ nvim INPUTCSV.COB
 ```
 
 未安装 Aerial 时，Aerial 专项测试会跳过；其他核心测试不依赖 Aerial。MIT，见 [LICENSE](LICENSE)。
+
+完整的已完成与计划中增强项见 [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md)。

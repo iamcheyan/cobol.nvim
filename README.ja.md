@@ -24,6 +24,7 @@ Neovim で COBOL を編集するためのプラグインです。固定形式 CO
 | 構造と移動 | Winbar のパンくず、折りたたみ、`gd`、`gf`、`K` | Division、段落、フィールド、Copybook をたどりやすい |
 | データレイアウト | PIC とレコードサイズの推定、`OCCURS`、`REDEFINES` 対応 | レコードのメモリ上の構成を学べる |
 | コード補完 | COBOL のキーワード、動詞、句、スニペット、データ名、段落、Copybook | 入力を減らし、COBOL の語彙とプログラム構造を学びやすくする |
+| コンテキスト情報 | 形式、ソース領域、パンくず、現在の PIC、レコードサイズ | 移動中も重要な COBOL の情報を確認できる |
 | 診断 | 非同期の `cobc -fsyntax-only` と Quickfix | エディターを止めずに構文エラーを確認できる |
 | 編集補助 | コメント切り替え、スマート Tab、予約語の大文字化 | 固定形式 COBOL の反復作業を減らせる |
 | オプションのアウトライン | Aerial（Neovim のコード構造サイドバー）用 COBOL backend | プログラム構造を検索できる |
@@ -174,3 +175,5 @@ nvim INPUTCSV.COB
 ```
 
 Aerial がない場合、Aerial 専用テストはスキップされます。その他のコアテストには Aerial は必要ありません。MIT。詳細は [LICENSE](LICENSE) を参照してください。
+
+完了済みおよび今後の拡張項目は [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) にまとめています。

@@ -12,6 +12,7 @@
 - [x] Phase 4：GnuCOBOL 异步诊断、Quickfix 和 Copybook 诊断关联
 - [x] Phase 5：语法折叠和关键字格式化
 - [x] Phase 6：COBOL 关键字、代码片段、数据名和 Copybook 补全
+- [x] Phase 7：COBOL 状态栏/Winbar 上下文信息
 
 ## P0：先修复正确性和可独立使用性
 
@@ -67,6 +68,29 @@ COBOL backend，让它能够显示 Division、Section、Paragraph 和数据记�
 - [x] 支持当前行、Visual selection 和全文件范围
 - [x] 只修改 COBOL 保留字，不修改变量名、字符串、注释和 Copybook 内容
 - [x] 处理 `END-IF`、`END-PERFORM` 等带连字符关键字
+
+### 状态栏与上下文
+
+- [x] 提供可供 lualine、Heirline 和 winbar 使用的 `cobol.statusline` 组件
+- [x] 显示 Fixed/Free 格式和当前固定格式区域
+- [x] 显示 Division、Section、Paragraph 或数据层级面包屑
+- [x] 显示当前字段、PIC 定义、字段大小和所属 01 记录大小
+- [x] 在插件自己的 COBOL Winbar 中自动显示上下文
+- [x] 在非 COBOL 文件中返回空内容，不影响其他文件类型
+
+## 后续增强总清单
+
+完整规格、优先级和验证要求见 [ENHANCEMENTS.md](ENHANCEMENTS.md)。当前主要方向：
+
+- 完善 Visual `gc` 和原生注释操作符
+- COBOL-aware 原生缩进
+- 更完整的 GnuCOBOL 诊断与 Copybook 解析
+- 工程构建、运行和测试命令
+- 数据定义引用和重命名辅助
+- Paragraph/Section 原生风格导航
+- 可选 SQL/CICS 支持
+- 可选 DAP 调试支持
+- 稳定后再评估 Tree-sitter backend
 
 ## P1：解析器和诊断增强
 

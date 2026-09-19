@@ -10,6 +10,7 @@ CONTENTS                                                            *cobol.nvim*
 
   Setup                         |cobol-setup|
   Completion                    |cobol-completion|
+  Context component              |cobol-statusline|
   Commands                      |cobol-commands|
   Configuration                 |cobol-configuration|
 
@@ -33,6 +34,14 @@ from referenced Copybooks. A COBOL language server is not required.
 
 Completion is optional. The fixed-format guide, navigation, calculator,
 folding, formatting, and diagnostics work without blink.cmp.
+
+CONTEXT COMPONENT                                                   *cobol-statusline*
+
+Use `require("cobol.statusline").component()` with lualine or a similar
+status component system. `require("cobol.statusline").get()` returns a string
+containing the source format, fixed-format area, breadcrumb, current PIC
+field, and enclosing record size. It returns an empty string outside COBOL
+buffers. The COBOL winbar includes this context automatically.
 
 ===============================================================================
 COMMANDS                                                            *cobol-commands*

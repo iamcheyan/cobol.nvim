@@ -24,6 +24,7 @@ The core features work without Aerial. Aerial is an optional Neovim plugin that 
 | Structure and navigation | Winbar breadcrumbs, folding, `gd`, `gf`, and `K` | Helps you move through Divisions, paragraphs, fields, and copybooks |
 | Data layout | PIC and record-size estimates, including `OCCURS` and `REDEFINES` | Gives beginners a practical view of record storage |
 | Completion | COBOL keywords, verbs, clauses, snippets, data names, paragraphs, and copybooks | Reduces typing and helps you discover the vocabulary and structure of a program |
+| Context information | Format, source area, breadcrumb, current PIC, and record size | Keeps the most useful COBOL context visible while you move through a file |
 | Diagnostics | Asynchronous `cobc -fsyntax-only` checks and Quickfix integration | Finds syntax errors without blocking the editor |
 | Editing helpers | Comment toggle, smart Tab, reserved-word case formatting | Reduces repetitive work in fixed-format source |
 | Optional outline | Aerial, a Neovim code-structure sidebar, with the COBOL backend | Provides a searchable tree of the program |
@@ -195,6 +196,8 @@ Run the test suite from the repository root:
 ```
 
 The Aerial-specific test is skipped when Aerial is not installed; the core tests do not require it.
+
+The planned and completed enhancements are tracked in [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md).
 
 ## License
 

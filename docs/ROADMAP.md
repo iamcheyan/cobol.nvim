@@ -27,6 +27,8 @@ Neovim 提供可搜索代码结构 Outline 侧边栏的插件，本项目只把 
 | **Phase 3** | **数据层级与 PIC 结构计算器** | 单项 PIC 字节换算（支持 `COMP`/`COMP-3`）、`01 RECORD` 自动递归汇总总字节数、ASCII 内存排布表 | **已完成 (v0.3.0) ✅** | 行尾 Virtual Text, `<leader>cr`, `:CobolCalcRecord` |
 | **Phase 4** | **编译器实时语法飞检** | GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检、Neovim Diagnostics 映射、标点/段落/变量错误红黄波浪线、Copybook 穿透标记 | **已完成 (v0.4.0) ✅** | 实时 Diagnostics, `<leader>cl`, `<leader>cq` |
 | **Phase 5** | **语法折叠与格式化** | Division / Section / Paragraph 语法级折叠 (`za`)、COBOL 保留字大小写规范化 (`:CobolFormatCase`) | **已完成 (v0.1.0) ✅** | `za`, `:CobolFormatCase` |
+| **Phase 6** | **COBOL 代码补全** | 关键字、代码片段、数据名、Paragraph、Section 和 Copybook 符号补全，自动接入 `blink.cmp` | **已完成 ✅** | `blink.cmp` |
+| **Phase 7** | **状态栏与上下文信息** | Fixed/Free、源码区域、面包屑、当前 PIC 字段和 01 记录大小 | **已完成 ✅** | `cobol.statusline`, COBOL Winbar |
 
 ---
 
