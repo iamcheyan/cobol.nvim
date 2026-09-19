@@ -11,6 +11,7 @@ local default_config = {
   show_winbar = true,          -- 顶部打孔卡刻度
   show_breadcrumbs = true,     -- 顶部 Winbar 实时显示 Division > Section > Paragraph 面包屑
   show_hierarchy_hint = true,  -- DATA DIVISION 行尾显示父级结构回溯 (← 05 PARENT)
+  show_pic_size = true,        -- DATA DIVISION 实时显示字段字节数与 01 Record 内存总计
   highlight_levels = true,     -- 突出高亮 88 级条件名与 01 级记录
   show_colorcolumn = false,    -- 禁用粗背景色块
   highlight_overflow = true,   -- 72 列越界代码告警
@@ -19,6 +20,15 @@ local default_config = {
   smart_tab = true,            -- 智能对齐 Tab
   smart_comments = true,       -- 第 7 列智能注释切换
   keymaps = true,              -- 默认快捷键
+  diagnostics = {
+    enable = true,              -- 启用 GnuCOBOL 异步语法飞检与诊断
+    on_save = true,             -- 保存时立即飞检 (BufWritePost)
+    on_change = true,           -- 内容变更时防抖飞检 (TextChanged)
+    debounce_ms = 600,          -- 防抖延时毫秒
+    warnings = { "all", "no-obsolete" }, -- 编译器警告控制
+    dialect = nil,              -- COBOL 方言 (默认 nil 使用 GnuCOBOL 原生)
+    copybook_paths = { ".", "./cpy", "./include", "../copybooks", "../include" },
+  },
 }
 
 M.config = vim.deepcopy(default_config)
@@ -59,6 +69,8 @@ function M.setup_highlights()
   set("CobolConditionName", { fg = "#e5c07b", bold = true })  -- 88 条件名（暖金黄）
   set("CobolLevel01", { fg = "#61afef", bold = true })        -- 01 顶级记录号（亮蓝）
   set("CobolHierarchyHint", { fg = "#5c6370", italic = true })-- 行尾宿主回溯虚词
+  set("CobolSizeHint", { fg = "#7f848e", italic = true })      -- 字段字节数提示
+  set("CobolRecordSizeHint", { fg = "#98c379", bold = true })  -- 01 Record 内存总计提示
 
   -- 72 列越界代码高亮（醒目告警）
   set("CobolColumnOverflow", {
@@ -492,12 +504,28 @@ function M.attach(bufnr)
 
   -- 更新宿主回溯提示
   M.update_hierarchy_hint(bufnr, win_id)
+  if M.config.show_pic_size then
+    local ok_calc, calc = pcall(require, "cobol.calculator")
+    if ok_calc and calc.update_cursor_hint then
+      calc.update_cursor_hint(bufnr, win_id)
+    end
+  end
 
   -- 注册快捷键
   if M.config.keymaps then
     local ok_nav, nav = pcall(require, "cobol.navigation")
     if ok_nav and nav.setup_keymaps then
       nav.setup_keymaps(bufnr)
+    end
+
+    local ok_calc, calc = pcall(require, "cobol.calculator")
+    if ok_calc and calc.setup_keymaps then
+      calc.setup_keymaps(bufnr)
+    end
+
+    local ok_diag, diag = pcall(require, "cobol.diagnostics")
+    if ok_diag and diag.setup_keymaps then
+      diag.setup_keymaps(bufnr)
     end
 
     local map = function(mode, lhs, rhs, desc)
@@ -529,6 +557,15 @@ function M.attach(bufnr)
         end
         return "<Tab>"
       end, { buffer = bufnr, expr = true, silent = true, desc = "COBOL: Smart Align Tab" })
+    end
+  end
+
+  -- 首次载入时触发异步语法飞检
+  local diag_cfg = (M.config and M.config.diagnostics) or {}
+  if diag_cfg.enable then
+    local ok_diag, diag = pcall(require, "cobol.diagnostics")
+    if ok_diag and diag.lint then
+      diag.lint(bufnr)
     end
   end
 end
@@ -568,6 +605,13 @@ function M.detach(bufnr)
   local win_id = vim.api.nvim_get_current_win()
   clear_matches(win_id)
   vim.api.nvim_buf_clear_namespace(bufnr, M.ns_hint, 0, -1)
+  pcall(vim.api.nvim_buf_clear_namespace, bufnr, vim.api.nvim_create_namespace("cobol_nvim_calc"), 0, -1)
+
+  -- 清除诊断与任务
+  local ok_diag, diag = pcall(require, "cobol.diagnostics")
+  if ok_diag and diag.clear then
+    diag.clear(bufnr)
+  end
 end
 
 -- 全局开启
@@ -692,6 +736,31 @@ function M.setup(opts)
     require("cobol.navigation").hover_preview()
   end, { desc = "COBOL: Preview definition or copybook under cursor" })
 
+  vim.api.nvim_create_user_command("CobolCalcRecord", function()
+    require("cobol.calculator").show_record_layout()
+  end, { desc = "COBOL: Calculate memory layout and total byte size of 01 record" })
+
+  vim.api.nvim_create_user_command("CobolLint", function()
+    require("cobol.diagnostics").lint(nil, { interactive = true })
+  end, { desc = "COBOL: Run real-time GnuCOBOL syntax check (cobc)" })
+
+  vim.api.nvim_create_user_command("CobolQuickfix", function()
+    require("cobol.diagnostics").open_quickfix()
+  end, { desc = "COBOL: Open diagnostics Quickfix list" })
+
+  vim.api.nvim_create_user_command("CobolDiagnosticsToggle", function()
+    if M.config.diagnostics then
+      M.config.diagnostics.enable = not M.config.diagnostics.enable
+      local status = M.config.diagnostics.enable and "Enabled" or "Disabled"
+      if not M.config.diagnostics.enable then
+        require("cobol.diagnostics").clear()
+      else
+        require("cobol.diagnostics").lint(nil, { interactive = true })
+      end
+      vim.notify("COBOL Diagnostics: " .. status, vim.log.levels.INFO)
+    end
+  end, { desc = "COBOL: Toggle GnuCOBOL diagnostics linter" })
+
   -- 针对 COBOL 文件类型的自动命令
   local group = vim.api.nvim_create_augroup("CobolNvimGroup", { clear = true })
 
@@ -711,6 +780,12 @@ function M.setup(opts)
         local win_id = vim.api.nvim_get_current_win()
         setup_matches(win_id)
         M.update_hierarchy_hint(ev.buf, win_id)
+        if M.config.show_pic_size then
+          local ok_calc, calc = pcall(require, "cobol.calculator")
+          if ok_calc and calc.update_cursor_hint then
+            calc.update_cursor_hint(ev.buf, win_id)
+          end
+        end
       end
     end,
   })
@@ -720,7 +795,61 @@ function M.setup(opts)
     callback = function(ev)
       local ft = vim.bo[ev.buf].filetype
       if ft == "cobol" or ft == "cbl" or ft == "cob" then
-        M.update_hierarchy_hint(ev.buf, vim.api.nvim_get_current_win())
+        local win_id = vim.api.nvim_get_current_win()
+        M.update_hierarchy_hint(ev.buf, win_id)
+        if M.config.show_pic_size then
+          local ok_calc, calc = pcall(require, "cobol.calculator")
+          if ok_calc and calc.update_cursor_hint then
+            calc.update_cursor_hint(ev.buf, win_id)
+          end
+        end
+      end
+    end,
+  })
+
+  -- 异步语法飞检触发事件
+  vim.api.nvim_create_autocmd({ "BufWritePost" }, {
+    group = group,
+    pattern = { "*.cob", "*.cbl", "*.cpy", "*.COB", "*.CBL", "*.CPY" },
+    callback = function(ev)
+      local diag_cfg = (M.config and M.config.diagnostics) or {}
+      if diag_cfg.enable and diag_cfg.on_save then
+        local ok_diag, diag = pcall(require, "cobol.diagnostics")
+        if ok_diag and diag.lint then
+          diag.lint(ev.buf)
+        end
+      end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+    group = group,
+    callback = function(ev)
+      local ft = vim.bo[ev.buf].filetype
+      if ft == "cobol" or ft == "cbl" or ft == "cob" then
+        local diag_cfg = (M.config and M.config.diagnostics) or {}
+        if diag_cfg.enable and diag_cfg.on_change then
+          local ok_diag, diag = pcall(require, "cobol.diagnostics")
+          if ok_diag and diag.lint_debounced then
+            diag.lint_debounced(ev.buf)
+          end
+        end
+      end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ "InsertLeave" }, {
+    group = group,
+    callback = function(ev)
+      local ft = vim.bo[ev.buf].filetype
+      if ft == "cobol" or ft == "cbl" or ft == "cob" then
+        local diag_cfg = (M.config and M.config.diagnostics) or {}
+        if diag_cfg.enable and diag_cfg.on_change then
+          local ok_diag, diag = pcall(require, "cobol.diagnostics")
+          if ok_diag and diag.lint then
+            diag.lint(ev.buf)
+          end
+        end
       end
     end,
   })

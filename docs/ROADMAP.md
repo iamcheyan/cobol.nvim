@@ -19,8 +19,8 @@
 | **Phase 1** | **穿孔卡标尺与安全边界** | 7/8/12/73 纯细线标尺、Winbar 动态打孔卡刻度、72 列越界波浪红告警、第 7 列智能注释、智能 Tab 吸附、列跳转快捷键 | **已完成 (v0.1.0) ✅** | `<leader>uc`, `g7/g8/g12/g73`, `<leader>c*`, `Tab` |
 | **Phase 2.1** | **大纲结构与层级展示** | Winbar 实时段落面包屑、DATA DIVISION 01/88 级着色、行尾结构回溯 (`← 05`)、Aerial 侧边栏 3 层符号树 (`<leader>cs`) | **已完成 (v0.2.0) ✅** | Winbar, `<leader>cs`, 行尾 Virtual Text |
 | **Phase 2.2** | **代码定义跳转与 Copybook 预览** | `PERFORM`/`GO TO` 段落一键直达 (`gd` / `<C-o>`)、`COPY` Copybook 文件跳转 (`gf`)、`COPY` 行悬浮窗预览结构 (`K`) | **已完成 (v0.2.1) ✅** | `gd`, `<C-o>`, `gf`, `K` |
-| **Phase 3** | **数据层级与 PIC 结构计算器** | 单项 PIC 字节换算（支持 `COMP`/`COMP-3`）、`01 RECORD` 自动递归汇总总字节数（Virtual Text / Command） | **进阶计划 📌** | 01 行行尾提示, `:CobolCalcRecord` |
-| **Phase 4** | **编译器实时语法飞检** | GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检、Neovim Diagnostics 映射（标点/列错位/未定义报错） | **安全计划 📌** | 保存/停顿触发 Diagnostics 诊断 |
+| **Phase 3** | **数据层级与 PIC 结构计算器** | 单项 PIC 字节换算（支持 `COMP`/`COMP-3`）、`01 RECORD` 自动递归汇总总字节数、ASCII 内存排布表 | **已完成 (v0.3.0) ✅** | 行尾 Virtual Text, `<leader>cr`, `:CobolCalcRecord` |
+| **Phase 4** | **编译器实时语法飞检** | GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检、Neovim Diagnostics 映射、标点/段落/变量错误红黄波浪线、Copybook 穿透标记 | **已完成 (v0.4.0) ✅** | 实时 Diagnostics, `<leader>cl`, `<leader>cq` |
 | **Phase 5** | **语法折叠与格式化** | Division / Section / Paragraph 语法级折叠 (`za`)、COBOL 保留字大小写规范化 (`:CobolFormatCase`) | **优化计划 📌** | `za`, `:CobolFormatCase` |
 
 ---
@@ -99,7 +99,7 @@
 
 ---
 
-### Phase 3: 数据层级与 PIC 结构计算器（进阶实施 📌）
+### Phase 3: 数据层级与 PIC 结构计算器（已完成 ✅）
 
 #### 1. 单项 PIC 字节换算（Virtual Text / Hover）
 * **换算规则**：
@@ -108,35 +108,36 @@
   - `PIC S9(7) COMP-3`：Packed-Decimal（压缩十进制），公式为 `floor((N + 1) / 2)`，7 位占 `4` 字节。
   - `PIC S9(4) COMP` / `BINARY`：二进制半字（1-4 位占 2 字节，5-9 位占 4 字节，10-18 位占 8 字节）。
 * **自检项**：
-  - [ ] 光标停留在数据行时，能否正确换算并展示单项占用的字节大小。
+  - [x] 光标停留在数据行时，能否正确换算并展示单项占用的字节大小（如 `/* 20 B */`，`/* 5 B COMP-3 */`）。
 
-#### 2. `01 RECORD` 自动递归汇总总字节数
+#### 2. `01 RECORD` 自动递归汇总总字节数与内存排布表
 * **痛点**：设计数据文件或报文接口时，必须算出整个 01 结构体的精确字节总和（用于确认是否与文件定长 256 字节匹配）。
 * **技术方案**：
   - 当光标停留在 `01  INPUT-RECORD` 时，自动向下遍历直到下一个同级（`01`/`77`/`FD`/`SECTION`）。
-  - 收集所有基本字段（非包含组字段），累加字节数。
-  - 在 `01` 行行尾以 Virtual Text 形式提示：`/* Record Size: 256 Bytes */`；或提供命令 `:CobolCalcRecord` 输出明细报表。
+  - 收集所有基本字段（非包含组字段），累加字节数并计算各个字段的起始偏移量（Offset）。
+  - 在 `01` 行行尾以 Virtual Text 形式提示：`/* Total: 398 Bytes (6 fields) */`。
+  - 快捷键 `<leader>cr` / 命令 `:CobolCalcRecord` 弹出居中 ASCII 浮动表格。
 * **自检项**：
-  - [ ] 对测试 demo `INPUTCSV.COB` 中的 `01 WS-INPUT-FIELDS` 运行，是否准确计算其所有成员的字节和。
+  - [x] 对测试 demo `INPUTCSV.COB` 中的 `01 WS-INPUT-FIELDS` 运行，是否准确计算其所有成员的字节和（398 Bytes）。
+  - [x] 弹窗表格是否列出偏移量 `+0`, `+20`, `+50` 等。
 
 ---
 
-### Phase 4: 编译器实时语法飞检（安全实施 📌）
+### Phase 4: 编译器实时语法飞检（已完成 ✅）
 
 #### 1. GnuCOBOL (`cobc`) 异步 Diagnostics
 * **技术方案**：
-  - 利用系统已安装的 `cobc`：`cobc -fsyntax-only -std=cobol85 -I <copybook_dir> <temp_file>`。
-  - 在 `BufWritePost`（保存时）或带有防抖的 `CursorHold` 时异步在后台运行，不阻塞 Neovim 编辑。
-  - 抓取输出如：`file.cob:89: error: syntax error, unexpected ...`。
-  - 转化为 Neovim 原生 `vim.diagnostic.set`，直接在代码行上绘制红色/黄色波浪线。
-* **常见捕获问题**：
-  - 漏掉句号 `.`
-  - 关键字在 Area A 与 Area B 错位
-  - 使用未定义的段落或变量
-  - 块未闭合（如缺少 `END-IF`、`END-PERFORM`）
+  - 利用系统已安装的 `cobc`：`cobc -fsyntax-only -fdiagnostics-plain-output -Wall -Wno-obsolete -I <dir> -`。
+  - 依托 Neovim 原生 `vim.system`，非阻塞异步将当前缓冲区内容传递给 STDIN，即使未保存文件也能实时秒级检测。
+  - 在 `BufWritePost`（保存）、`TextChanged`（防抖 600ms）及 `InsertLeave` 时自动调度飞检。
+  - 抓取输出（如 `-:85: error: 'UNKNOWN-PARAGRAPH' is not defined`），并转化为 Neovim 原生 `vim.diagnostic.set`。
+  - 精确下划线：提取消息中被单引号包裹的标识符并在代码行内高亮，避免整行盲目下划线。
+  - Copybook 穿透联动：外部 `.CPY` 报错时，在主程序 `COPY` 语句处标记 `[In EMP-REC.CPY:5]`，并在已打开的 Copybook 对应行上同步标记错误。
+  - 快捷命令：`:CobolLint`（`<leader>cl`）交互式即时校验、`:CobolQuickfix`（`<leader>cq`）一键打开诊断列表。
 * **自检项**：
-  - [ ] 故意删掉某行末尾的 `.` 并保存，对应行是否立即出现红色错误波浪线并在浮窗提示。
-  - [ ] 补上 `.` 后保存，错误是否立即消除。
+  - [x] 故意写错段落名（如 `PERFORM UNKNOWN-PARAGRAPH.`），第 85 行立即出现红色波浪线并在浮窗提示。
+  - [x] 修复后保存或离开插入模式，错误波浪线立即消除。
+  - [x] 输入 `<leader>cl`，状态栏友好提示错误/告警数量或校验通过。
 
 ---
 
