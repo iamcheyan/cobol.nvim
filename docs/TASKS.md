@@ -35,7 +35,7 @@
 
 - [x] 统一导航模块和诊断模块的 Copybook 搜索路径配置
 - [x] 支持用户配置项目根目录、Copybook 目录和额外 `cobc` 参数
-- [ ] 检查全局关闭 `vim.diagnostic` 时，插件是否仍提供明确提示
+- [x] 检查全局关闭 `vim.diagnostic` 时，插件是否仍提供明确提示
 - [x] 为不存在 `cobc`、不可读 Copybook 和无效 buffer 提供稳定降级行为
 
 ## P1：完成 Phase 5

@@ -28,6 +28,9 @@ diagnostics.process_output(buf, { stderr = "-:1:1: error: stale result" }, { "  
 
 local current = vim.diagnostic.get(buf, { namespace = diagnostics.ns })
 assert(#current == 1 and current[1].message == "newer result", "stale diagnostics must be ignored")
+vim.diagnostic.enable(false, { namespace = diagnostics.ns, bufnr = buf })
+assert(diagnostics.is_enabled(buf) == false, "diagnostics disabled state should be detectable")
+vim.diagnostic.enable(true, { namespace = diagnostics.ns, bufnr = buf })
 
 local root = vim.fn.tempname()
 vim.fn.mkdir(root, "p")

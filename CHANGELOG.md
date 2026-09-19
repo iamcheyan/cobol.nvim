@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Warn when Neovim diagnostics are disabled for a COBOL buffer.
+- Improve compiler and Copybook configuration handling.
+
 ## 0.1.0
 
 - Initial standalone release of `cobol.nvim`.

@@ -16,6 +16,17 @@ local severity_map = {
   info = vim.diagnostic.severity.INFO,
 }
 
+function M.is_enabled(bufnr)
+  if not vim.diagnostic.is_enabled then
+    return true
+  end
+  local ok, enabled = pcall(vim.diagnostic.is_enabled, {
+    bufnr = bufnr,
+    namespace = M.ns,
+  })
+  return not ok or enabled
+end
+
 -- 查找已打开的 Copybook 缓冲区
 local function find_buf_by_file(file, base_dir)
   local candidate = file
@@ -222,6 +233,12 @@ function M.process_output(bufnr, res, lines, base_dir, opts)
   -- 应用诊断结果
   for b, diags in pairs(diags_by_buf) do
     if vim.api.nvim_buf_is_valid(b) then
+      if not M.is_enabled(b) then
+        vim.notify_once(
+          "COBOL: Neovim diagnostics are disabled for this buffer; compiler results are not visible.",
+          vim.log.levels.WARN
+        )
+      end
       vim.diagnostic.set(M.ns, b, diags, {})
     end
   end
