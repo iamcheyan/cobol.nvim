@@ -86,13 +86,15 @@ return {
 
 ---
 
-## 路线图 (Roadmap)
+## 路线图与功能验证 (Roadmap & Verification)
 
-详细功能规划请参见 [docs/ROADMAP.md](docs/ROADMAP.md)：
-* **Phase 1**（已完成）：纯细线标尺、Winbar 刻度、72 列溢出告警、第 7 列注释、快捷跳转与 Tab 吸附。
-* **Phase 2**（规划中）：Winbar 段落面包屑大纲、`PERFORM` 一键直达定义（`gd`）、`COPY` Copybook 快速跳转（`gf`）。
-* **Phase 3**（规划中）：`DATA DIVISION` 01-88 级高亮、`PIC` 字段长度计算与 `01 RECORD` 总字节数实时求和。
-* **Phase 4**（规划中）：GnuCOBOL (`cobc`) 实时语法诊断、保留字大小写规范化。
+详细功能规划、实现规格与测试自检清单请参见 [docs/ROADMAP.md](docs/ROADMAP.md)：
+* **Phase 1: 穿孔卡标尺与安全边界**（已完成 ✅）：纯细线标尺、Winbar 刻度、72 列溢出告警、第 7 列注释、快捷跳转与 Tab 吸附。
+* **Phase 2.1: 结构大纲与层级展示**（已完成 ✅）：Winbar 段落面包屑、01/88 级高亮与行尾宿主回溯、Aerial 侧边栏 3 层符号树（`<leader>cs`）。
+* **Phase 2.2: 代码定义跳转与 Copybook 预览**（优先实施中 📌）：`PERFORM` / `GO TO` 段落一键直达（`gd` / `<C-o>`）、`COPY` Copybook 文件跳转（`gf`）与悬浮窗预览（`K`）。
+* **Phase 3: 数据层级与 PIC 结构计算器**（进阶实施 📌）：单项 `PIC` 字节换算、`01 RECORD` 自动递归汇总总字节数。
+* **Phase 4: 编译器实时语法飞检**（安全实施 📌）：GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检与 Diagnostics 映射。
+* **Phase 5: 语法折叠与格式化**（优化实施 📌）：Division/Section/Paragraph 语法级折叠（`za`）、保留字大小写规范化。
 
 ---
 
