@@ -73,17 +73,17 @@
 - [ ] 为 Aerial parser 增加结构树快照或断言测试
 - [ ] 为诊断输出解析增加多种 `cobc` 输出样本测试
 - [x] 增加无 Neovim UI 的 headless smoke test
-- [ ] 添加 GitHub Actions：Lua 语法、测试和文档检查
-- [ ] 增加版本/变更记录和发布流程
+- [x] 添加 GitHub Actions：Lua 语法、测试和文档检查
+- [x] 增加版本/变更记录和发布流程
 
 ## P2：公共发布质量
 
 - [x] 添加 MIT LICENSE 文件
 - [x] 添加 lazy.nvim 安装示例
 - [x] 说明最低 Neovim 版本和可选依赖
-- [ ] 添加 `:help cobol.nvim` 文档
-- [ ] 删除所有机器专属绝对路径
-- [ ] 为配置项补充完整文档和默认值表
+- [x] 添加 `:help cobol.nvim` 文档
+- [x] 删除所有机器专属绝对路径
+- [x] 为配置项补充完整文档和默认值表
 - [ ] 发布第一个带版本号的稳定 tag
 
 ## 推荐执行顺序

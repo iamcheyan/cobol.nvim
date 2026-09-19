@@ -1,0 +1,52 @@
+*cobol.nvim*
+
+COBOL support for Neovim with fixed-format guides, navigation, PIC size
+calculation, optional Aerial symbols, folding, case formatting, and GnuCOBOL
+diagnostics.
+
+===============================================================================
+CONTENTS                                                            *cobol.nvim*
+
+  Setup                         |cobol-setup|
+  Commands                      |cobol-commands|
+  Configuration                 |cobol-configuration|
+
+===============================================================================
+SETUP                                                               *cobol-setup*
+
+Install iamcheyan/cobol.nvim with your plugin manager and call:
+
+    require("cobol").setup({})
+
+Aerial is optional. Add the COBOL backend to Aerial's `backends` filetype map
+when Aerial is installed.
+
+===============================================================================
+COMMANDS                                                            *cobol-commands*
+
+:CobolFormatCase       Uppercase COBOL reserved words in the current line,
+                       a Visual range, or the whole file.
+:CobolLint              Run GnuCOBOL syntax diagnostics.
+:CobolQuickfix          Open COBOL diagnostics in the quickfix list.
+:CobolCalcRecord        Show the current 01 record layout.
+:CobolGotoDef           Jump to a paragraph or data definition.
+:CobolGotoCopybook      Open the Copybook under the cursor.
+:CobolPreview           Preview a Copybook or definition.
+:CobolDiagnosticsToggle Toggle compiler diagnostics.
+:CobolGuideToggle       Toggle the fixed-format guide.
+
+===============================================================================
+CONFIGURATION                                                       *cobol-configuration*
+
+project_root             Project root used for Copybook lookup and cobc cwd.
+copybook_paths           Relative directories searched for Copybooks.
+cobc_command             Compiler command; defaults to "cobc".
+cobc_extra_args          Additional compiler arguments.
+folding.enable           Enable structural COBOL folding.
+diagnostics.enable       Enable asynchronous compiler diagnostics.
+diagnostics.debounce_ms  Delay for TextChanged diagnostics.
+
+See README.md and docs/TASKS.md for examples, supported limitations, and the
+development checklist.
+
+vim:tw=78:ts=8:ft=help:norl:

@@ -1,5 +1,11 @@
 local diagnostics = require("cobol.diagnostics")
 
+local detailed = assert(diagnostics.parse_line("main.cbl:5:7: error: invalid syntax"))
+assert(detailed.file == "main.cbl" and detailed.lnum == 5 and detailed.col == 7)
+assert(detailed.severity == "error" and detailed.message == "invalid syntax")
+local without_col = assert(diagnostics.parse_line("SHARED.CPY:3: warning: missing period"))
+assert(without_col.file == "SHARED.CPY" and without_col.lnum == 3 and without_col.col == nil)
+
 local buf = vim.api.nvim_create_buf(true, false)
 vim.api.nvim_buf_set_name(buf, vim.fn.tempname() .. "/main.cbl")
 vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "       DISPLAY X." })

@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Neovim
+        shell: bash
+        run: |
+          curl -fsSL https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz \
+            | tar -xz -C /tmp
+          echo "/tmp/nvim-linux-x86_64/bin" >> "$GITHUB_PATH"
+
+      - name: Run headless tests
+        run: ./scripts/test.sh
+
+      - name: Check Lua syntax
+        shell: bash
+        run: |
+          for file in lua/cobol/*.lua lua/aerial/backends/*.lua; do
+            nvim --headless -u NONE -c "lua assert(loadfile('$file'))" -c 'qa!'
+          done
+
+      - name: Check patch whitespace
+        run: git diff --check
