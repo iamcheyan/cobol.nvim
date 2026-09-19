@@ -6,6 +6,7 @@ local M = {}
 M.ns = vim.api.nvim_create_namespace("cobol_nvim_diagnostics")
 M.running_jobs = {}
 M.timers = {}
+M.generations = {}
 
 local severity_map = {
   error = vim.diagnostic.severity.ERROR,
@@ -17,7 +18,11 @@ local severity_map = {
 
 -- 查找已打开的 Copybook 缓冲区
 local function find_buf_by_file(file, base_dir)
-  local norm_file = vim.fs.normalize(file)
+  local candidate = file
+  if not vim.startswith(candidate, "/") and base_dir then
+    candidate = base_dir .. "/" .. candidate
+  end
+  local norm_file = vim.fs.normalize(candidate)
   local base_name = vim.fs.basename(file)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
@@ -137,6 +142,9 @@ end
 -- 解析并分发诊断信息到对应缓冲区
 function M.process_output(bufnr, res, lines, base_dir, opts)
   opts = opts or {}
+  if opts.generation and opts.current_generation and opts.current_generation() ~= opts.generation then
+    return
+  end
   local diags_by_buf = { [bufnr] = {} }
   local total_errors = 0
   local total_warnings = 0
@@ -240,6 +248,9 @@ function M.lint(bufnr, opts)
 
   opts = opts or {}
 
+  M.generations[bufnr] = (M.generations[bufnr] or 0) + 1
+  local generation = M.generations[bufnr]
+
   local ok_c, cobol = pcall(require, "cobol")
   local plugin_cfg = (ok_c and cobol.config) or {}
   local diag_cfg = plugin_cfg.diagnostics or {}
@@ -339,12 +350,21 @@ function M.lint(bufnr, opts)
       text = true,
     },
     function(res)
+      if M.generations[bufnr] ~= generation then
+        return
+      end
       M.running_jobs[bufnr] = nil
       vim.schedule(function()
-        if not vim.api.nvim_buf_is_valid(bufnr) then
+        if not vim.api.nvim_buf_is_valid(bufnr) or M.generations[bufnr] ~= generation then
           return
         end
-        M.process_output(bufnr, res, lines, base_dir, opts)
+        local process_opts = vim.tbl_extend("force", opts, {
+          generation = generation,
+          current_generation = function()
+            return M.generations[bufnr]
+          end,
+        })
+        M.process_output(bufnr, res, lines, base_dir, process_opts)
       end)
     end
   )
@@ -399,6 +419,7 @@ function M.clear(bufnr)
     end)
     M.running_jobs[bufnr] = nil
   end
+  M.generations[bufnr] = (M.generations[bufnr] or 0) + 1
   if vim.api.nvim_buf_is_valid(bufnr) then
     vim.diagnostic.reset(M.ns, bufnr)
   end
