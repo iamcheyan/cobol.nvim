@@ -20,6 +20,10 @@ assert(text:find("WS%-NAME", 1, false), "status should show the current field")
 assert(text:find("PIC X%(20%)", 1, false), "status should show the current PIC")
 assert(text:find("20 B", 1, true), "status should show the current field size")
 assert(text:find("RECORD 20 B", 1, true), "status should show the enclosing record size")
+local highlighted = statusline.get({ bufnr = bufnr, winid = 0, highlight = true })
+assert(highlighted:find("%%#CobolStatusFormat#", 1, false), "status should color the format")
+assert(highlighted:find("%%#CobolStatusPic#", 1, false), "status should color the PIC clause")
+assert(highlighted:find("%%#CobolStatusRecord#", 1, false), "status should color the record size")
 
 vim.bo[bufnr].filetype = "lua"
 assert(statusline.get({ bufnr = bufnr, winid = 0 }) == "", "status should be empty outside COBOL")

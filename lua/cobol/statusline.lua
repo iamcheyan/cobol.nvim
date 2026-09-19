@@ -49,7 +49,7 @@ function M.get_info(opts)
   local cobol = require("cobol")
   local calculator = require("cobol.calculator")
   local row = vim.api.nvim_win_get_cursor(winid)[1]
-  local breadcrumb = cobol.get_breadcrumb(bufnr, row)
+  local breadcrumb, breadcrumb_hl = cobol.get_breadcrumb(bufnr, row)
   local field = current_field(bufnr, row)
   local record
   local record_start = calculator.find_enclosing_record_start(bufnr, row)
@@ -61,6 +61,7 @@ function M.get_info(opts)
     format = cobol.detect_format(bufnr):upper(),
     area = current_area(winid),
     breadcrumb = breadcrumb,
+    breadcrumb_hl = breadcrumb_hl,
     field = field,
     record = record,
   }
@@ -73,25 +74,33 @@ function M.format(opts)
     return ""
   end
 
-  local parts = { "COBOL " .. info.format }
+  local highlight = opts.highlight == true
+  local function styled(text, group)
+    if not highlight then
+      return text
+    end
+    return "%#" .. group .. "#" .. text .. "%*"
+  end
+
+  local parts = { styled("COBOL " .. info.format, "CobolStatusFormat") }
   if opts.show_area ~= false then
-    table.insert(parts, info.area)
+    table.insert(parts, styled(info.area, "CobolStatusArea"))
   end
   if opts.show_breadcrumb ~= false and info.breadcrumb and info.breadcrumb ~= "" then
-    table.insert(parts, info.breadcrumb)
+    table.insert(parts, styled(info.breadcrumb, info.breadcrumb_hl or "CobolStatusField"))
   end
   if opts.show_field ~= false and info.field then
     local field = info.field
     local pic = field.pic and ("PIC " .. field.pic) or nil
-    local field_text = field.name
+    local field_parts = { styled(field.name, "CobolStatusField") }
     if pic then
-      field_text = field_text .. " " .. pic
+      table.insert(field_parts, styled(pic, "CobolStatusPic"))
     end
-    field_text = field_text .. " " .. field.bytes .. " B"
-    table.insert(parts, field_text)
+    table.insert(field_parts, styled(field.bytes .. " B", "CobolStatusSize"))
+    table.insert(parts, table.concat(field_parts, " "))
   end
   if opts.show_record ~= false and info.record and info.record.total_bytes then
-    table.insert(parts, "RECORD " .. info.record.total_bytes .. " B")
+    table.insert(parts, styled("RECORD " .. info.record.total_bytes .. " B", "CobolStatusRecord"))
   end
 
   return table.concat(parts, opts.separator or " | ")

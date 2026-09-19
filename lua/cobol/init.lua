@@ -141,6 +141,15 @@ function M.setup_highlights()
   set("CobolBreadcrumbEnv", { fg = "#e5c07b", bg = "#1c212a", bold = true })
   set("CobolBreadcrumbId", { fg = "#c678dd", bg = "#1c212a", bold = true })
 
+  -- Statusline context components, using the same semantic colors as the
+  -- ruler, breadcrumbs, and data-layout virtual text above.
+  set("CobolStatusFormat", { fg = "#61afef", bold = true })
+  set("CobolStatusArea", { fg = "#98c379", bold = true })
+  set("CobolStatusField", { fg = "#e5c07b", bold = true })
+  set("CobolStatusPic", { fg = "#c678dd" })
+  set("CobolStatusSize", { fg = "#56b6c2", bold = true })
+  set("CobolStatusRecord", { fg = "#98c379", bold = true })
+
   -- DATA DIVISION 层级与 88 级高亮
   set("CobolLevel88", { fg = "#c678dd", bold = true })        -- 88 标志号（鲜明紫）
   set("CobolConditionName", { fg = "#e5c07b", bold = true })  -- 88 条件名（暖金黄）
