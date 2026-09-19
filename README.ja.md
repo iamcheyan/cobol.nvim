@@ -6,6 +6,10 @@ Neovim で COBOL を編集するためのプラグインです。固定形式 CO
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+![cobol.nvim の概要](assets/cobol.nvim-overview.png)
+
+スクリーンショットには、Aerial の構造アウトライン、固定形式の列ガイド、COBOL の移動機能、エディター内の Copybook プレビューが表示されています。
+
 ## 対象ユーザー
 
 固定形式 COBOL を学び始めた方、`.cob`、`.cbl`、`.cobol` を保守する方、Copybook と Division、Section、Paragraph 構造を使うプロジェクトに適しています。

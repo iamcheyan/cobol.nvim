@@ -6,6 +6,10 @@ The plugin helps you read existing COBOL programs, understand their layout, find
 
 [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
+![cobol.nvim overview](assets/cobol.nvim-overview.png)
+
+The screenshot shows the main workflow: the Aerial structure outline, fixed-format column guides, COBOL navigation, and a copybook preview in the editor.
+
 ## Who is it for?
 
 `cobol.nvim` is useful for beginners learning fixed-format COBOL, developers maintaining `.cob`, `.cbl`, or `.cobol` programs, and projects that use copybooks and traditional Division/Section/Paragraph structure.

@@ -6,6 +6,10 @@
 
 [English](README.md) · [日本語](README.ja.md)
 
+![cobol.nvim 功能概览](assets/cobol.nvim-overview.png)
+
+图中展示了插件的主要工作流：Aerial 结构大纲、固定格式列标尺、COBOL 导航，以及编辑器中的 Copybook 预览。
+
 ## 适合谁使用？
 
 `cobol.nvim` 适合正在学习固定格式 COBOL 的初学者、维护 `.cob`、`.cbl` 或 `.cobol` 程序的开发者，以及使用 Copybook 和 Division、Section、Paragraph 结构的项目。
