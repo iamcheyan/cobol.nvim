@@ -6,6 +6,12 @@ assert(detailed.severity == "error" and detailed.message == "invalid syntax")
 local without_col = assert(diagnostics.parse_line("SHARED.CPY:3: warning: missing period"))
 assert(without_col.file == "SHARED.CPY" and without_col.lnum == 3 and without_col.col == nil)
 
+local context = diagnostics.parse_line("main.cbl: in paragraph 'MAIN-PARA':")
+assert(context == nil, "context-only compiler lines should not become diagnostics")
+
+local invalid, reason = diagnostics.lint(999999, { interactive = false })
+assert(invalid == false and reason == "invalid_buffer", "invalid buffers should fail explicitly")
+
 local buf = vim.api.nvim_create_buf(true, false)
 vim.api.nvim_buf_set_name(buf, vim.fn.tempname() .. "/main.cbl")
 vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "       DISPLAY X." })

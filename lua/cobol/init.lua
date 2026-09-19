@@ -21,6 +21,7 @@ local default_config = {
   smart_comments = true,       -- 第 7 列智能注释切换
   keymaps = true,              -- 默认快捷键
   project_root = nil,          -- 项目根目录；未设置时使用当前文件目录
+  source_format = "auto",     -- auto、fixed 或 free
   copybook_paths = { ".", "./cpy", "./copy", "./copybooks", "./include", "../copybooks", "../include" },
   cobc_command = "cobc",      -- GnuCOBOL 编译器命令
   cobc_extra_args = {},        -- 传给 cobc 的额外参数
@@ -72,6 +73,24 @@ function M.get_copybook_paths()
     paths = M.config.diagnostics.copybook_paths
   end
   return paths or { "." }
+end
+
+function M.detect_format(bufnr)
+  local configured = M.config.source_format
+  if configured == "fixed" or configured == "free" then
+    return configured
+  end
+  bufnr = bufnr or vim.api.nvim_get_current_buf()
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, math.min(80, vim.api.nvim_buf_line_count(bufnr)), false)
+  for _, line in ipairs(lines) do
+    if line:match("^%d%d%d%d%d%d[%s*/]") or (#line >= 7 and (line:sub(7, 7) == "*" or line:sub(7, 7) == "/")) then
+      return "fixed"
+    end
+    if line:match("^%s*[%w%-]+%s+DIVISION%s*%.") and not line:match("^%s%s%s%s%s%s%s") then
+      return "free"
+    end
+  end
+  return "fixed"
 end
 
 -- 初始化高亮组（融入 Fresh / Catppuccin / High Contrast 配色）

@@ -243,7 +243,7 @@ end
 function M.lint(bufnr, opts)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   if not vim.api.nvim_buf_is_valid(bufnr) then
-    return
+    return false, "invalid_buffer"
   end
 
   opts = opts or {}
@@ -261,7 +261,7 @@ function M.lint(bufnr, opts)
     if opts.interactive then
       vim.notify("COBOL: '" .. compiler .. "' (GnuCOBOL) compiler not found in PATH.", vim.log.levels.WARN)
     end
-    return
+    return false, "compiler_not_found"
   end
 
   -- 取消当前缓冲区的延迟定时器
@@ -281,13 +281,13 @@ function M.lint(bufnr, opts)
 
   -- 获取配置
   if diag_cfg.enable == false and not opts.interactive then
-    return
+    return false, "disabled"
   end
 
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   if #lines == 0 then
     vim.diagnostic.set(M.ns, bufnr, {}, {})
-    return
+    return true
   end
 
   local text = table.concat(lines, "\n") .. "\n"
@@ -303,6 +303,13 @@ function M.lint(bufnr, opts)
 
   if diag_cfg.dialect then
     table.insert(args, "-std=" .. diag_cfg.dialect)
+  end
+
+  local source_format = diag_cfg.source_format or (ok_c and cobol.detect_format and cobol.detect_format(bufnr))
+  if source_format == "free" then
+    table.insert(args, "-free")
+  elseif source_format == "fixed" then
+    table.insert(args, "-fixed")
   end
 
   local warnings = diag_cfg.warnings or { "all", "no-obsolete" }
@@ -368,6 +375,7 @@ function M.lint(bufnr, opts)
       end)
     end
   )
+  return true
 end
 
 -- 带防抖的延迟飞检 (供 TextChanged / TextChangedI 使用)

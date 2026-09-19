@@ -89,6 +89,7 @@ opts = {
 * 🧮 **数据层级与 PIC 结构计算器 (Data & PIC Size Calculator)**：
   * 光标停留在变量行时，行尾以虚拟文本实时展示物理字节数（如 `/* 20 B */`，`/* 5 B COMP-3 */`）。
   * 自动识别 `DISPLAY`、`COMP` / `BINARY`（半字/全字/双字）、`COMP-3` / `PACKED-DECIMAL`（压缩十进制）、`OCCURS` 重复项与 `REDEFINES` 内存共享。
+  * 字节数是按当前 GnuCOBOL/平台常见 ABI 的估算值；`COMP`、指针和浮点布局可能随编译器与目标平台变化。
   * 光标位于 `01` 根记录时，自动递归向下汇总子字段字节总和，并在行尾提示 `/* Total: 398 Bytes (6 fields) */`。
   * 按 `<leader>cr` / `:CobolCalcRecord`：居中弹出精美 ASCII 表格，列出各字段层级、物理偏移量（Offset）、字节大小与存储类型。
 * 🩺 **GnuCOBOL (`cobc`) 实时异步语法飞检与诊断 (Real-time Diagnostics)**：

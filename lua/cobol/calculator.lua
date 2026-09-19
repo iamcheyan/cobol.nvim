@@ -32,21 +32,30 @@ function M.parse_field_size(raw_line)
     return nil
   end
 
-  local lvl_str, name = upper:match("^%s*(%d%d)%s+([%w%-]+)")
+  -- 固定格式序号区（1-6）和指示列（7）不属于数据定义。
+  local source_line = raw_line
+  if raw_line:match("^%d%d%d%d%d%d ") then
+    source_line = raw_line:sub(8)
+  end
+
+  local source_upper = source_line:upper()
+  local lvl_str, name = source_upper:match("^%s*(%d%d)%s+([%w%-]+)")
   if not lvl_str then
     return nil
   end
 
   local level = tonumber(lvl_str)
-  local redefines = upper:match("REDEFINES%s+([%w%-]+)")
-  local occurs_str = upper:match("OCCURS%s+(%d+)")
+  local redefines = source_upper:match("REDEFINES%s+([%w%-]+)")
+  local occurs_str = source_upper:match("OCCURS%s+(%d+)")
   local occurs = occurs_str and tonumber(occurs_str) or 1
+  local occurs_depending = source_upper:match("OCCURS%s+%d+%s+TO%s+%d+%s+DEPENDING%s+ON%s+([%w%-]+)")
+    or source_upper:match("OCCURS%s+%d+%s+DEPENDING%s+ON%s+([%w%-]+)")
 
   -- 提取 PIC 描述
-  local pic = upper:match("[Pp][Ii][Cc]%s+IS%s+([A-Za-z0-9%(%)]+)")
-    or upper:match("[Pp][Ii][Cc]%s+([A-Za-z0-9%(%)]+)")
-    or upper:match("[Pp][Ii][Cc][Tt][Uu][Rr][Ee]%s+IS%s+([A-Za-z0-9%(%)]+)")
-    or upper:match("[Pp][Ii][Cc][Tt][Uu][Rr][Ee]%s+([A-Za-z0-9%(%)]+)")
+  local pic = source_upper:match("[Pp][Ii][Cc]%s+IS%s+([A-Za-z0-9%(%)]+)")
+    or source_upper:match("[Pp][Ii][Cc]%s+([A-Za-z0-9%(%)]+)")
+    or source_upper:match("[Pp][Ii][Cc][Tt][Uu][Rr][Ee]%s+IS%s+([A-Za-z0-9%(%)]+)")
+    or source_upper:match("[Pp][Ii][Cc][Tt][Uu][Rr][Ee]%s+([A-Za-z0-9%(%)]+)")
 
   -- 若没有 PIC，说明是组项（Group Item，由从属字段提供具体空间）
   if not pic then
@@ -55,6 +64,7 @@ function M.parse_field_size(raw_line)
       name = name,
       is_group = true,
       occurs = occurs,
+      occurs_depending = occurs_depending,
       redefines = redefines,
       bytes = 0,
     }
@@ -62,21 +72,21 @@ function M.parse_field_size(raw_line)
 
   -- 判断 USAGE（存储模式）
   local usage = "DISPLAY"
-  if upper:find("COMP%-3") or upper:find("PACKED%-DECIMAL") then
+  if source_upper:find("COMP%-3") or source_upper:find("PACKED%-DECIMAL") then
     usage = "COMP-3"
-  elseif upper:find("COMP%-1") then
+  elseif source_upper:find("COMP%-1") then
     usage = "COMP-1"
-  elseif upper:find("COMP%-2") then
+  elseif source_upper:find("COMP%-2") then
     usage = "COMP-2"
-  elseif upper:find("COMP%-4") or upper:find("COMP%-5") or upper:find("COMP") or upper:find("BINARY") then
+  elseif source_upper:find("COMP%-4") or source_upper:find("COMP%-5") or source_upper:find("COMP") or source_upper:find("BINARY") then
     usage = "COMP"
-  elseif upper:find("POINTER") then
+  elseif source_upper:find("POINTER") then
     usage = "POINTER"
   end
 
   local expanded = M.expand_pic(pic)
   local bytes = 0
-  local has_separate_sign = upper:find("SEPARATE") ~= nil
+  local has_separate_sign = source_upper:find("SEPARATE") ~= nil
 
   if usage == "COMP-3" then
     -- Packed-Decimal: 每个数字半字节(4bit)，末尾符号半字节，公式 ceil((digits + 1) / 2)
@@ -122,6 +132,7 @@ function M.parse_field_size(raw_line)
     pic = pic,
     usage = usage,
     occurs = occurs,
+    occurs_depending = occurs_depending,
     redefines = redefines,
     is_group = false,
     bytes = bytes,

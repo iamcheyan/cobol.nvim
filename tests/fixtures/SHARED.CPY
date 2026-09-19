@@ -1,0 +1,1 @@
+       01  SHARED-FIELD PIC X(10).

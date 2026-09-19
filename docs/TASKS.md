@@ -10,7 +10,7 @@
 - [x] Phase 2.2：`gd`、`gf`、`K` 和 Copybook 搜索
 - [x] Phase 3：PIC 基础计算和 `01` 记录布局
 - [x] Phase 4：GnuCOBOL 异步诊断、Quickfix 和 Copybook 诊断关联
-- [ ] Phase 5：语法折叠和关键字格式化
+- [x] Phase 5：语法折叠和关键字格式化
 
 ## P0：先修复正确性和可独立使用性
 
@@ -22,21 +22,21 @@
 - [x] 更新独立安装文档
 - [x] 在没有 Aerial 时验证插件仍可正常加载
 - [x] 在安装 Aerial 时验证 backend 模块、`cobol/cbl/cob` 文件类型和 lazy.nvim 配置合并
-- [ ] 在兼容的 Aerial/Neovim 版本中验证 `<leader>cs`、跳转和刷新
+- [x] 在兼容的 Aerial/Neovim 版本中验证 `<leader>cs`、跳转和刷新
 
 ### PIC 计算器正确性
 
-- [ ] 修复 `COMP-1` / `COMP-2` 被通用 `COMP` 分支提前匹配的问题
-- [ ] 增加 `USAGE IS`、`SIGN IS SEPARATE` 等常见写法测试
-- [ ] 验证 `COMP-3`、`BINARY`、`OCCURS`、`REDEFINES` 的边界案例
-- [ ] 明确平台/编译器 ABI 差异，避免把估算结果描述成绝对布局
+- [x] 修复 `COMP-1` / `COMP-2` 被通用 `COMP` 分支提前匹配的问题
+- [x] 增加 `USAGE IS`、`SIGN IS SEPARATE` 等常见写法测试
+- [x] 验证 `COMP-3`、`BINARY`、`OCCURS`、`REDEFINES` 的边界案例
+- [x] 明确平台/编译器 ABI 差异，避免把估算结果描述成绝对布局
 
 ### 配置一致性
 
 - [x] 统一导航模块和诊断模块的 Copybook 搜索路径配置
 - [x] 支持用户配置项目根目录、Copybook 目录和额外 `cobc` 参数
 - [ ] 检查全局关闭 `vim.diagnostic` 时，插件是否仍提供明确提示
-- [ ] 为不存在 `cobc`、不可读 Copybook 和无效 buffer 提供稳定降级行为
+- [x] 为不存在 `cobc`、不可读 Copybook 和无效 buffer 提供稳定降级行为
 
 ## P1：完成 Phase 5
 
@@ -57,21 +57,21 @@
 
 ## P1：解析器和诊断增强
 
-- [ ] 增加更严格的固定格式/自由格式区分
-- [ ] 改善注释、续行、行内注释和序号区处理
-- [ ] 处理 `COPY ... REPLACING`
-- [ ] 处理 `OCCURS ... DEPENDING ON`
-- [ ] 改善同名 Paragraph、Section 和 Data item 的解析策略
-- [ ] 适配不同 GnuCOBOL 版本的诊断输出
-- [ ] 验证未保存 buffer、Copybook 和路径含空格的场景
-- [ ] 防止快速编辑时旧诊断结果覆盖新 buffer 内容
+- [x] 增加更严格的固定格式/自由格式区分
+- [x] 改善注释、续行、行内注释和序号区处理
+- [x] 处理 `COPY ... REPLACING`
+- [x] 处理 `OCCURS ... DEPENDING ON`
+- [x] 改善同名 Paragraph、Section 和 Data item 的解析策略
+- [x] 适配不同 GnuCOBOL 版本的诊断输出
+- [x] 验证未保存 buffer、Copybook 和路径含空格的场景
+- [x] 防止快速编辑时旧诊断结果覆盖新 buffer 内容
 
 ## P1：测试与工程化
 
-- [ ] 添加最小 COBOL fixture：固定格式、自由格式、Data Division、Copybook
+- [x] 添加最小 COBOL fixture：固定格式、自由格式、Data Division、Copybook
 - [x] 为 PIC calculator 增加 Lua 单元测试
-- [ ] 为 Aerial parser 增加结构树快照或断言测试
-- [ ] 为诊断输出解析增加多种 `cobc` 输出样本测试
+- [x] 为 Aerial parser 增加结构树快照或断言测试
+- [x] 为诊断输出解析增加多种 `cobc` 输出样本测试
 - [x] 增加无 Neovim UI 的 headless smoke test
 - [x] 添加 GitHub Actions：Lua 语法、测试和文档检查
 - [x] 增加版本/变更记录和发布流程

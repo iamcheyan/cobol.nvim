@@ -24,4 +24,16 @@ for digits, expected in pairs({ [4] = 2, [5] = 4, [9] = 4, [10] = 8 }) do
   assert_equal(field.bytes, expected, "binary boundary " .. digits)
 end
 
+local repeated = assert(calculator.parse_field_size("       05 WS-CODE PIC X(2) OCCURS 3 TIMES."))
+assert_equal(repeated.bytes, 6, "OCCURS repeated display field")
+
+local dynamic = assert(calculator.parse_field_size("       05 WS-LIST PIC X(2) OCCURS 3 TO 10 DEPENDING ON WS-COUNT."))
+assert_equal(dynamic.occurs_depending, "WS-COUNT", "OCCURS DEPENDING ON metadata")
+
+local redefined = assert(calculator.parse_field_size("       05 WS-ALT REDEFINES WS-NAME PIC X(4)."))
+assert_equal(redefined.redefines, "WS-NAME", "REDEFINES target")
+
+local fixed = assert(calculator.parse_field_size("000100 05 WS-FIXED PIC X(2)."))
+assert_equal(fixed.bytes, 2, "fixed-format sequence area")
+
 print("calculator_spec: OK")
