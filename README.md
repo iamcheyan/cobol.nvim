@@ -53,6 +53,25 @@ opts = {
 `project_root`、`copybook_paths` 同时用于 `gf`/`K` Copybook 导航和 `cobc` 诊断；
 诊断项中的同名配置可用于覆盖它们。未设置项目根目录时，插件使用当前文件目录。
 
+### 配合练习仓库
+
+推荐使用配套的公开练习仓库
+[`iamcheyan/cobol`](https://github.com/iamcheyan/cobol) 边学边练。它包含从基础
+固定格式、Copybook、PIC/内存布局，到 `REDEFINES`、`OCCURS`、`SEARCH ALL` 和
+Control Break 报表的逐课教程与可运行示例。
+
+```bash
+git clone https://github.com/iamcheyan/cobol.git ~/cobol-practice
+cd ~/cobol-practice
+make check
+nvim INPUTCSV.COB
+```
+
+建议按 `docs/01` 到 `docs/07` 顺序练习。第 7 课会把每个示例映射到插件功能：
+`<leader>cs`、`gd`、`gf`、`K`、`<leader>cr`、`<leader>cl`、`<leader>cq`、
+`za` 和 `:CobolFormatCase`。练习仓库不属于插件运行时依赖，用户也可以使用自己的
+COBOL 项目。
+
 ---
 
 ## 特性亮点 (Features)
@@ -79,6 +98,9 @@ opts = {
 * 🗺️ **Aerial 侧边栏层级大纲 (`<leader>cs`)**：
   * 3 层树状符号大纲：Divisions -> Sections -> Paragraphs / FDs / 01 级记录；
   * 支持回车跳转与双向光标跟随高亮。
+* 🧩 **语法折叠与保留字格式化**：
+  * Division、Section、Paragraph 和 DATA 记录组使用原生 `foldexpr`，可用 `za`/`zc`/`zo` 操作。
+  * `:CobolFormatCase` 支持当前行、Visual 选区和全文件，只修改识别出的 COBOL 保留字。
 * 💬 **第 7 列智能注释切换**：
   * `<leader>c*` / `:CobolToggleComment`：精准在第 7 列插入或移除 `*` 注释符，支持单行与 Visual 多行选区，绝不破坏原有代码缩进。
 * ⚡ **智能 Tab 吸附与列跳转**：
@@ -110,6 +132,7 @@ opts = {
 | `<leader>uc` | Normal | 全局 | 一键开关整个 COBOL 细线标尺与 Winbar 刻度 |
 | `<leader>cs` | Normal | 全局 | 呼出/隐藏 Aerial 符号大纲侧边栏 |
 | `<leader>cr` | Normal | 01 记录 / 字段 | **计算 01 记录内存排布与字节总和**（居中弹窗展示偏移量表格） |
+| `za` / `zc` / `zo` | Normal | Division / Section / Paragraph / Data record | **语法折叠**：折叠、关闭或打开当前结构 |
 | `<leader>cl` | Normal | 全局 | **立即触发 GnuCOBOL 语法飞检**（Cobol Lint） |
 | `<leader>cq` | Normal | 全局 | **打开诊断 Quickfix 列表**（查看当前所有语法错误与告警） |
 | `gd` | Normal | 段落 / 变量 / Copybook | **直达定义**（跳到段落定义行、数据字段行或 Copybook 文件） |

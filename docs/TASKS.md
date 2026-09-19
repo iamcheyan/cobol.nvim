@@ -86,12 +86,10 @@
 - [x] 为配置项补充完整文档和默认值表
 - [x] 发布第一个带版本号的稳定 tag（`v0.1.0`）
 
-## 推荐执行顺序
+## 发布后练习与回归
 
-1. 完成 Aerial 迁移后的双路径验证。
-2. 修复 PIC calculator 的 `COMP-1` / `COMP-2`，建立测试 fixture。
-3. 统一 Copybook 和诊断配置，并补充 `cobc` 降级行为。
-4. 增加 parser、calculator、diagnostics 的最小自动化测试。
-5. 实现语法折叠。
-6. 实现安全的关键字大小写格式化。
-7. 最后整理 help 文档、CI 和第一个稳定版本。
+1. 使用配套练习仓库的 `INPUTCSV.COB` 验证导航、PIC 计算和实时诊断。
+2. 使用 `FIXEDREC.COB` 验证固定格式、`REDEFINES` 和 Copybook 跳转。
+3. 使用 `TBLSRCH.COB` 验证 `OCCURS`、Aerial 大纲和数组结构。
+4. 使用 `BATCHRPT.COB` 验证 Section、Paragraph、折叠和格式化命令。
+5. 插件代码变更后运行 `./scripts/test.sh`，发布前更新 CHANGELOG 和版本 tag。

@@ -25,7 +25,7 @@
 | **Phase 2.2** | **代码定义跳转与 Copybook 预览** | `PERFORM`/`GO TO` 段落一键直达 (`gd` / `<C-o>`)、`COPY` Copybook 文件跳转 (`gf`)、`COPY` 行悬浮窗预览结构 (`K`) | **已完成 (v0.2.1) ✅** | `gd`, `<C-o>`, `gf`, `K` |
 | **Phase 3** | **数据层级与 PIC 结构计算器** | 单项 PIC 字节换算（支持 `COMP`/`COMP-3`）、`01 RECORD` 自动递归汇总总字节数、ASCII 内存排布表 | **已完成 (v0.3.0) ✅** | 行尾 Virtual Text, `<leader>cr`, `:CobolCalcRecord` |
 | **Phase 4** | **编译器实时语法飞检** | GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检、Neovim Diagnostics 映射、标点/段落/变量错误红黄波浪线、Copybook 穿透标记 | **已完成 (v0.4.0) ✅** | 实时 Diagnostics, `<leader>cl`, `<leader>cq` |
-| **Phase 5** | **语法折叠与格式化** | Division / Section / Paragraph 语法级折叠 (`za`)、COBOL 保留字大小写规范化 (`:CobolFormatCase`) | **优化计划 📌** | `za`, `:CobolFormatCase` |
+| **Phase 5** | **语法折叠与格式化** | Division / Section / Paragraph 语法级折叠 (`za`)、COBOL 保留字大小写规范化 (`:CobolFormatCase`) | **已完成 (v0.1.0) ✅** | `za`, `:CobolFormatCase` |
 
 ---
 
@@ -77,7 +77,7 @@
   - 向上或全局正则搜索 `^\s*<WORD>\.\s*$`（顶格在 Area A 且以点结尾的段落/节定义），并支持跳至 `DATA DIVISION` 的字段与 `01/05/88/FD`。
   - 压入 Neovim 标签栈（`tagstack` 与 `jumplist`），跳转后可直接使用 `<C-o>` 原路跳回。
 * **自检项**：
-  - [x] 光标在 `PERFORM 1000-INITIALIZE` 上按 `gd`，能否直跳第 83 行 `1000-INITIALIZE.`。
+  - [x] 光标在 `PERFORM 1000-INITIALIZE` 上按 `gd`，能否直跳 `1000-INITIALIZE.`。
   - [x] 跳转后按 `<C-o>`，能否精确返回之前的 `PERFORM` 行。
   - [x] 若光标所在词不是合法段落名，给出友好的浮窗/状态栏提示。
 
@@ -139,18 +139,18 @@
   - Copybook 穿透联动：外部 `.CPY` 报错时，在主程序 `COPY` 语句处标记 `[In EMP-REC.CPY:5]`，并在已打开的 Copybook 对应行上同步标记错误。
   - 快捷命令：`:CobolLint`（`<leader>cl`）交互式即时校验、`:CobolQuickfix`（`<leader>cq`）一键打开诊断列表。
 * **自检项**：
-  - [x] 故意写错段落名（如 `PERFORM UNKNOWN-PARAGRAPH.`），第 85 行立即出现红色波浪线并在浮窗提示。
+  - [x] 故意写错段落名（如 `PERFORM UNKNOWN-PARAGRAPH.`），对应行立即出现红色波浪线并在浮窗提示。
   - [x] 修复后保存或离开插入模式，错误波浪线立即消除。
   - [x] 输入 `<leader>cl`，状态栏友好提示错误/告警数量或校验通过。
 
 ---
 
-### Phase 5: 语法折叠与保留字格式化（优化实施 📌）
+### Phase 5: 语法折叠与保留字格式化（已完成 ✅）
 
-* [ ] **COBOL 语法折叠（`foldexpr`）**：
+* [x] **COBOL 语法折叠（`foldexpr`）**：
   - 依据已成熟的 Division / Section / Paragraph 行号范围分析，为 COBOL 设置折叠方法。
   - 在 `DATA DIVISION` 处按 `zc` 可折叠整个庞大数据区；在某个段落处按 `zc` 可收起段落内部代码。
-* [ ] **保留字规范化命令（`:CobolFormatCase`）**：
+* [x] **保留字规范化命令（`:CobolFormatCase`）**：
   - 提供单命令将选区或全篇文件的 COBOL 关键字（如 `move`, `perform`, `display`, `if`, `end-if`）格式化为全大写，保留变量与字面量不变。
 
 ---
@@ -158,13 +158,16 @@
 ## 验证与检查操作指南
 
 每次实现或修改完功能后，按以下步骤对照检查：
-1. **测试用例文件**：打开测试项目中的 COBOL 主程序与 Copybook 文件。
+1. **测试用例文件**：推荐使用 [iamcheyan/cobol](https://github.com/iamcheyan/cobol) 中的
+   `INPUTCSV.COB`、`FIXEDREC.COB`、`TBLSRCH.COB`、`BATCHRPT.COB` 和对应 Copybook。
 2. **测试快捷键**：
    - 基础标尺：`<leader>uc` 开关、`g7`/`g8`/`g12`/`g73` 穿梭、`Tab` 缩进吸附。
    - 大纲符号：`<leader>cs` 检查 Aerial 树状图与跳转。
    - 导航与跳转：`gd` 检查段落跳转与 `<C-o>` 回退、`gf` 与 `K` 检查 Copybook 跳转与浮窗。
    - 字节计算：检查 01 行行尾总大小计算是否符合预期。
    - 语法诊断：模拟缺少标点保存看波浪线。
+   - 折叠与格式化：在 Division/Section/Paragraph 上使用 `za`，复制一行小写关键字后运行
+     `:CobolFormatCase`，确认字符串、变量和注释没有被修改。
 3. **工作区状态与提交**：
    - 在插件仓库根目录提交并推送插件变更。
    - 在使用 Chezmoi 的配置仓库中更新该 submodule 指针，再执行 `chezmoi apply`。
