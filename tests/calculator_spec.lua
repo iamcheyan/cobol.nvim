@@ -16,4 +16,12 @@ local comp3 = assert(calculator.parse_field_size("       05 WS-PACKED PIC S9(5)V
 assert_equal(comp3.usage, "COMP-3", "COMP-3 usage")
 assert_equal(comp3.bytes, 4, "COMP-3 size")
 
+local separate = assert(calculator.parse_field_size("       05 WS-AMOUNT PIC S9(3) SIGN IS SEPARATE."))
+assert_equal(separate.bytes, 4, "separate display sign size")
+
+for digits, expected in pairs({ [4] = 2, [5] = 4, [9] = 4, [10] = 8 }) do
+  local field = assert(calculator.parse_field_size(string.format("       05 WS-BIN PIC 9(%d) BINARY.", digits)))
+  assert_equal(field.bytes, expected, "binary boundary " .. digits)
+end
+
 print("calculator_spec: OK")

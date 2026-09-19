@@ -20,6 +20,10 @@ local default_config = {
   smart_tab = true,            -- 智能对齐 Tab
   smart_comments = true,       -- 第 7 列智能注释切换
   keymaps = true,              -- 默认快捷键
+  project_root = nil,          -- 项目根目录；未设置时使用当前文件目录
+  copybook_paths = { ".", "./cpy", "./copy", "./copybooks", "./include", "../copybooks", "../include" },
+  cobc_command = "cobc",      -- GnuCOBOL 编译器命令
+  cobc_extra_args = {},        -- 传给 cobc 的额外参数
   folding = {
     enable = true,              -- 使用 COBOL Division/Section/Paragraph 结构折叠
   },
@@ -30,7 +34,7 @@ local default_config = {
     debounce_ms = 600,          -- 防抖延时毫秒
     warnings = { "all", "no-obsolete" }, -- 编译器警告控制
     dialect = nil,              -- COBOL 方言 (默认 nil 使用 GnuCOBOL 原生)
-    copybook_paths = { ".", "./cpy", "./include", "../copybooks", "../include" },
+    copybook_paths = nil,      -- 兼容旧配置；默认继承顶层 copybook_paths
   },
 }
 
@@ -41,6 +45,34 @@ M.state = {
 
 M.ns_ruler = vim.api.nvim_create_namespace("cobol_nvim_ruler")
 M.ns_hint = vim.api.nvim_create_namespace("cobol_nvim_hint")
+
+function M.get_project_root(bufnr, current_file)
+  local configured = M.config.project_root
+  if type(configured) == "function" then
+    configured = configured(bufnr or vim.api.nvim_get_current_buf())
+  end
+  if type(configured) == "string" and configured ~= "" then
+    configured = vim.fn.expand(configured)
+    if not vim.startswith(configured, "/") then
+      configured = vim.fn.getcwd() .. "/" .. configured
+    end
+    return vim.fs.normalize(configured)
+  end
+
+  current_file = current_file or vim.api.nvim_buf_get_name(bufnr or vim.api.nvim_get_current_buf())
+  if current_file and current_file ~= "" then
+    return vim.fs.dirname(vim.fs.normalize(current_file))
+  end
+  return vim.fn.getcwd()
+end
+
+function M.get_copybook_paths()
+  local paths = M.config.copybook_paths
+  if M.config.diagnostics and M.config.diagnostics.copybook_paths then
+    paths = M.config.diagnostics.copybook_paths
+  end
+  return paths or { "." }
+end
 
 -- 初始化高亮组（融入 Fresh / Catppuccin / High Contrast 配色）
 function M.setup_highlights()

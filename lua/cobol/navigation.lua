@@ -67,8 +67,17 @@ function M.find_copybook(name, current_file, search_paths)
     return nil
   end
   current_file = current_file or vim.api.nvim_buf_get_name(0)
-  local base_dir = vim.fn.fnamemodify(current_file, ":p:h")
-  search_paths = search_paths or M.default_copybook_paths
+  local ok_cobol, cobol = pcall(require, "cobol")
+  local base_dir
+  if ok_cobol and cobol.get_project_root then
+    base_dir = cobol.get_project_root(0, current_file)
+  else
+    base_dir = vim.fn.fnamemodify(current_file, ":p:h")
+  end
+  if not search_paths then
+    search_paths = (ok_cobol and cobol.get_copybook_paths and cobol.get_copybook_paths())
+      or M.default_copybook_paths
+  end
 
   local has_ext = name:match("%.[%w]+$") ~= nil
 

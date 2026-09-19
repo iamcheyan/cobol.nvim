@@ -240,10 +240,15 @@ function M.lint(bufnr, opts)
 
   opts = opts or {}
 
-  -- 检查 cobc 是否存在
-  if vim.fn.executable("cobc") ~= 1 then
+  local ok_c, cobol = pcall(require, "cobol")
+  local plugin_cfg = (ok_c and cobol.config) or {}
+  local diag_cfg = plugin_cfg.diagnostics or {}
+  local compiler = diag_cfg.command or plugin_cfg.cobc_command or "cobc"
+
+  -- 检查 GnuCOBOL 编译器是否存在
+  if vim.fn.executable(compiler) ~= 1 then
     if opts.interactive then
-      vim.notify("COBOL: 'cobc' (GnuCOBOL) compiler not found in PATH.", vim.log.levels.WARN)
+      vim.notify("COBOL: '" .. compiler .. "' (GnuCOBOL) compiler not found in PATH.", vim.log.levels.WARN)
     end
     return
   end
@@ -264,8 +269,6 @@ function M.lint(bufnr, opts)
   end
 
   -- 获取配置
-  local ok_c, cobol = pcall(require, "cobol")
-  local diag_cfg = (ok_c and cobol.config and cobol.config.diagnostics) or {}
   if diag_cfg.enable == false and not opts.interactive then
     return
   end
@@ -278,7 +281,8 @@ function M.lint(bufnr, opts)
 
   local text = table.concat(lines, "\n") .. "\n"
   local bufname = vim.api.nvim_buf_get_name(bufnr)
-  local base_dir = (bufname ~= "" and vim.fs.dirname(bufname)) or vim.fn.getcwd()
+  local base_dir = (ok_c and cobol.get_project_root and cobol.get_project_root(bufnr, bufname))
+    or ((bufname ~= "" and vim.fs.dirname(bufname)) or vim.fn.getcwd())
 
   -- 构建 cobc 参数
   local args = {
@@ -307,7 +311,8 @@ function M.lint(bufnr, opts)
   table.insert(args, "-I")
   table.insert(args, base_dir)
 
-  local copy_paths = diag_cfg.copybook_paths or { ".", "./cpy", "./include", "../copybooks", "../include" }
+  local copy_paths = diag_cfg.copybook_paths or plugin_cfg.copybook_paths
+    or { ".", "./cpy", "./include", "../copybooks", "../include" }
   for _, p in ipairs(copy_paths) do
     local full_p = vim.fs.normalize(base_dir .. "/" .. p)
     table.insert(args, "-I")
@@ -315,8 +320,9 @@ function M.lint(bufnr, opts)
   end
 
   -- 额外自定义参数
-  if diag_cfg.extra_args and type(diag_cfg.extra_args) == "table" then
-    for _, ea in ipairs(diag_cfg.extra_args) do
+  local extra_args = diag_cfg.extra_args or plugin_cfg.cobc_extra_args
+  if extra_args and type(extra_args) == "table" then
+    for _, ea in ipairs(extra_args) do
       table.insert(args, ea)
     end
   end
@@ -326,7 +332,7 @@ function M.lint(bufnr, opts)
 
   -- 异步调用 GnuCOBOL
   M.running_jobs[bufnr] = vim.system(
-    vim.list_extend({ "cobc" }, args),
+    vim.list_extend({ compiler }, args),
     {
       stdin = text,
       cwd = base_dir,

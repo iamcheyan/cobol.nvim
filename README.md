@@ -34,6 +34,25 @@ COBOL 符号大纲：
 Aerial backend 随本插件提供；不安装 Aerial 时，标尺、导航、计算器和诊断功能
 仍然可以独立使用。最低要求为 Neovim 0.10（实时诊断使用 `vim.system`）。
 
+### 配置
+
+```lua
+opts = {
+  project_root = "/path/to/your/cobol-project",
+  copybook_paths = { ".", "./copybooks", "./include" },
+  cobc_command = "cobc",
+  cobc_extra_args = {},
+  folding = { enable = true },
+  diagnostics = {
+    enable = true,
+    debounce_ms = 600,
+  },
+}
+```
+
+`project_root`、`copybook_paths` 同时用于 `gf`/`K` Copybook 导航和 `cobc` 诊断；
+诊断项中的同名配置可用于覆盖它们。未设置项目根目录时，插件使用当前文件目录。
+
 ---
 
 ## 特性亮点 (Features)
@@ -112,6 +131,7 @@ Aerial backend 随本插件提供；不安装 Aerial 时，标尺、导航、计
 * `:CobolGotoCopybook` - 打开 Copybook 文件（等价于 `gf`）
 * `:CobolPreview` - 弹窗预览光标处 Copybook 或过程定义（等价于 `K`）
 * `:CobolCalcRecord` - 计算当前 01 记录内存排布与总字节数（等价于 `<leader>cr`）
+* `:CobolFormatCase` - 将当前行、Visual 选区或整个文件中的 COBOL 保留字规范化为大写
 * `:CobolLint` - 立即执行 GnuCOBOL 编译器语法飞检（等价于 `<leader>cl`）
 * `:CobolQuickfix` - 打开语法诊断 Quickfix 列表（等价于 `<leader>cq`）
 * `:CobolDiagnosticsToggle` - 开启/关闭语法飞检诊断
@@ -130,7 +150,7 @@ Aerial backend 随本插件提供；不安装 Aerial 时，标尺、导航、计
 * **Phase 2.2: 代码定义跳转与 Copybook 预览**（已完成 ✅）：`PERFORM` / `GO TO` 段落一键直达（`gd` / `<C-o>`）、`COPY` Copybook 文件跳转（`gf`）与悬浮窗预览（`K`）。
 * **Phase 3: 数据层级与 PIC 结构计算器**（已完成 ✅）：单项 `PIC` 字节换算、`01 RECORD` 自动递归汇总总字节数、ASCII 内存排布表（`<leader>cr`）。
 * **Phase 4: 编译器实时语法飞检**（已完成 ✅）：GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检、Neovim Diagnostics 映射、标识符精确下划线、Copybook 穿透标记（`<leader>cl` / `<leader>cq`）。
-* **Phase 5: 语法折叠与格式化**（优化计划 📌）：Division/Section/Paragraph 语法级折叠（`za`）、保留字大小写规范化。
+* **Phase 5: 语法折叠与格式化**（已完成 ✅）：Division/Section/Paragraph 语法级折叠（`za`）、保留字大小写规范化。
 
 ---
 
