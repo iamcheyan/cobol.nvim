@@ -701,7 +701,6 @@ local function setup_line_ruler()
   })
 end
 
--- 插件 setup 入口
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
   M.setup_highlights()

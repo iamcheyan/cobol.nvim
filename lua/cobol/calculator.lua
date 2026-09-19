@@ -64,12 +64,12 @@ function M.parse_field_size(raw_line)
   local usage = "DISPLAY"
   if upper:find("COMP%-3") or upper:find("PACKED%-DECIMAL") then
     usage = "COMP-3"
-  elseif upper:find("COMP%-4") or upper:find("COMP%-5") or upper:find("COMP") or upper:find("BINARY") then
-    usage = "COMP"
   elseif upper:find("COMP%-1") then
     usage = "COMP-1"
   elseif upper:find("COMP%-2") then
     usage = "COMP-2"
+  elseif upper:find("COMP%-4") or upper:find("COMP%-5") or upper:find("COMP") or upper:find("BINARY") then
+    usage = "COMP"
   elseif upper:find("POINTER") then
     usage = "POINTER"
   end

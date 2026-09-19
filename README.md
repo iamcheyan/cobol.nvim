@@ -4,6 +4,36 @@ Modern COBOL development & visual enhancement toolkit for Neovim.
 
 为 Neovim 打造的现代化 COBOL（Fixed-Format 固定格式）开发与视觉辅助插件。
 
+## 安装 (Installation)
+
+使用 lazy.nvim：
+
+```lua
+{
+  "iamcheyan/cobol.nvim",
+  ft = { "cobol", "cbl", "cob" },
+  opts = {},
+}
+```
+
+插件的核心功能不依赖 Aerial。若已安装 Aerial，可追加一个可选配置来启用
+COBOL 符号大纲：
+
+```lua
+{
+  "stevearc/aerial.nvim",
+  optional = true,
+  opts = function(_, opts)
+    opts.backends = vim.tbl_deep_extend("force", opts.backends or {}, {
+      cobol = { "cobol" },
+    })
+  end,
+}
+```
+
+Aerial backend 随本插件提供；不安装 Aerial 时，标尺、导航、计算器和诊断功能
+仍然可以独立使用。最低要求为 Neovim 0.10（实时诊断使用 `vim.system`）。
+
 ---
 
 ## 特性亮点 (Features)
@@ -94,9 +124,9 @@ Modern COBOL development & visual enhancement toolkit for Neovim.
 
 ## 路线图与功能验证 (Roadmap & Verification)
 
-详细功能规划、实现规格与测试自检清单请参见 [docs/ROADMAP.md](docs/ROADMAP.md) 以及手册 [COBOL_NVIM_GUIDE.md](../../docs/COBOL_NVIM_GUIDE.md)：
+详细功能规划、实现规格与测试自检清单请参见 [docs/ROADMAP.md](docs/ROADMAP.md) 和 [docs/TASKS.md](docs/TASKS.md)：
 * **Phase 1: 穿孔卡标尺与安全边界**（已完成 ✅）：纯细线标尺、Winbar 刻度、72 列溢出告警、第 7 列注释、快捷跳转与 Tab 吸附。
-* **Phase 2.1: 结构大纲与层级展示**（已完成 ✅）：Winbar 段落面包屑、01/88 级高亮与行尾宿主回溯、Aerial 侧边栏 3 层符号树（`<leader>cs`）。
+* **Phase 2.1: 结构大纲与层级展示**（已完成 ✅）：Winbar 段落面包屑、01/88 级高亮与行尾宿主回溯、可选 Aerial 侧边栏 3 层符号树（`<leader>cs`）。
 * **Phase 2.2: 代码定义跳转与 Copybook 预览**（已完成 ✅）：`PERFORM` / `GO TO` 段落一键直达（`gd` / `<C-o>`）、`COPY` Copybook 文件跳转（`gf`）与悬浮窗预览（`K`）。
 * **Phase 3: 数据层级与 PIC 结构计算器**（已完成 ✅）：单项 `PIC` 字节换算、`01 RECORD` 自动递归汇总总字节数、ASCII 内存排布表（`<leader>cr`）。
 * **Phase 4: 编译器实时语法飞检**（已完成 ✅）：GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检、Neovim Diagnostics 映射、标识符精确下划线、Copybook 穿透标记（`<leader>cl` / `<leader>cq`）。
@@ -106,4 +136,4 @@ Modern COBOL development & visual enhancement toolkit for Neovim.
 
 ## License
 
-MIT
+MIT，见 [LICENSE](LICENSE)。

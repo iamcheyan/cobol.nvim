@@ -2,6 +2,10 @@
 
 本文档记录 `cobol.nvim` 的架构演进、阶段规划与功能验证清单，供开发与日常使用时对照检查。
 
+详细的迁移、测试、兼容性和发布任务请参见 [TASKS.md](TASKS.md)。当前插件源码
+是唯一实现；Aerial backend 位于 `lua/aerial/backends/cobol.lua`，Aerial 本身仍是
+可选依赖。
+
 ---
 
 ## 愿景与设计哲学
@@ -85,7 +89,7 @@
   - 配置搜索路径：`copybook_paths = { ".", "./cpy", "./include", "../copybooks", "../include" }`。
   - 找到文件后在当前窗口或以 split 打开。
 * **自检项**：
-  - [x] 光标停在 `COPY "EMP-REC.CPY".` 行，按 `gf` 能否直接打开 `/home/tetsuya/development/cobol/EMP-REC.CPY`。
+  - [x] 光标停在 `COPY "EMP-REC.CPY".` 行，按 `gf` 能否直接打开项目 Copybook。
 
 #### 3. `COPY` 悬浮窗快速预览 (`K` / Hover)
 * **痛点**：很多时候只是想确认 Copybook 里某个变量的名字和类型，不希望破坏当前的窗口布局去打开一个新 tab 或 split。
@@ -154,7 +158,7 @@
 ## 验证与检查操作指南
 
 每次实现或修改完功能后，按以下步骤对照检查：
-1. **测试用例文件**：打开真实测试代码 `/home/tetsuya/development/cobol/INPUTCSV.COB` 与 `EMP-REC.CPY`。
+1. **测试用例文件**：打开测试项目中的 COBOL 主程序与 Copybook 文件。
 2. **测试快捷键**：
    - 基础标尺：`<leader>uc` 开关、`g7`/`g8`/`g12`/`g73` 穿梭、`Tab` 缩进吸附。
    - 大纲符号：`<leader>cs` 检查 Aerial 树状图与跳转。
@@ -162,5 +166,5 @@
    - 字节计算：检查 01 行行尾总大小计算是否符合预期。
    - 语法诊断：模拟缺少标点保存看波浪线。
 3. **工作区状态与提交**：
-   - 子仓库提交：`cd ~/chezmoi/dot_config/nvim-private/lua/cobol.nvim && git commit -m "..." && git push`
-   - 主配置同步：`cd ~/chezmoi && git add dot_config/nvim-private/lua/cobol.nvim && git commit -m "..." && chezmoi apply`
+   - 在插件仓库根目录提交并推送插件变更。
+   - 在使用 Chezmoi 的配置仓库中更新该 submodule 指针，再执行 `chezmoi apply`。
