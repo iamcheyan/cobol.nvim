@@ -805,6 +805,13 @@ end
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
+  local ok_contextline, contextline = pcall(require, "contextline")
+  if ok_contextline then
+    contextline.register("cobol", {
+      filetypes = { "cobol", "cbl", "cob" },
+      get_info = require("cobol.context").get_info,
+    })
+  end
   M.setup_highlights()
   setup_line_ruler()
 
