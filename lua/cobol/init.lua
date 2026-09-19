@@ -135,11 +135,11 @@ function M.setup_highlights()
   set("CobolRulerAreaB", { fg = "#98c379", bg = "#181c24" })
   set("CobolRulerIdent", { fg = "#e06c75", bg = "#251d22" })
 
-  -- Winbar 动态面包屑配色
-  set("CobolBreadcrumbProc", { fg = "#61afef", bg = "#1c212a", bold = true })
-  set("CobolBreadcrumbData", { fg = "#98c379", bg = "#1c212a", bold = true })
-  set("CobolBreadcrumbEnv", { fg = "#e5c07b", bg = "#1c212a", bold = true })
-  set("CobolBreadcrumbId", { fg = "#c678dd", bg = "#1c212a", bold = true })
+  -- Winbar / Statusline 动态面包屑配色
+  set("CobolBreadcrumbProc", { fg = "#61afef", bg = "NONE", bold = true })
+  set("CobolBreadcrumbData", { fg = "#98c379", bg = "NONE", bold = true })
+  set("CobolBreadcrumbEnv", { fg = "#e5c07b", bg = "NONE", bold = true })
+  set("CobolBreadcrumbId", { fg = "#c678dd", bg = "NONE", bold = true })
 
   -- Statusline context components, using the same semantic colors as the
   -- ruler, breadcrumbs, and data-layout virtual text above.

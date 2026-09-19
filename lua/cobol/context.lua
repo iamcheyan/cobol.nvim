@@ -13,7 +13,24 @@ function M.get_info(opts)
     table.insert(segments, { text = info.area, icon = "󰏗", icon_hl = "Identifier", hl = "Identifier", type = "symbol" })
   end
   if info.breadcrumb and info.breadcrumb ~= "" then
-    table.insert(segments, { text = info.breadcrumb, icon = "󰊕", icon_hl = info.breadcrumb_hl or "Function", hl = info.breadcrumb_hl or "Function", type = "symbol" })
+    local parts = vim.split(info.breadcrumb, "%s*>%s*")
+    for idx, part in ipairs(parts) do
+      if part ~= "" then
+        local icon = "󰆧"
+        if idx == 1 then
+          icon = "󰏗"
+        elseif part:match("^%d%d") then
+          icon = "󰅪"
+        end
+        table.insert(segments, {
+          text = part,
+          icon = icon,
+          icon_hl = info.breadcrumb_hl or "Function",
+          hl = info.breadcrumb_hl or "Function",
+          type = "symbol",
+        })
+      end
+    end
   end
   if info.field then
     table.insert(segments, { text = info.field.name, icon = "󰅪", icon_hl = "Function", hl = "Function", type = "symbol" })
