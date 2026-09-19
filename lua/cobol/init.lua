@@ -495,6 +495,11 @@ function M.attach(bufnr)
 
   -- 注册快捷键
   if M.config.keymaps then
+    local ok_nav, nav = pcall(require, "cobol.navigation")
+    if ok_nav and nav.setup_keymaps then
+      nav.setup_keymaps(bufnr)
+    end
+
     local map = function(mode, lhs, rhs, desc)
       vim.keymap.set(mode, lhs, rhs, { buffer = bufnr, silent = true, desc = desc })
     end
@@ -674,6 +679,18 @@ function M.setup(opts)
   vim.api.nvim_create_user_command("CobolToggleComment", function(args)
     M.toggle_comment(args.line1, args.line2)
   end, { range = true, desc = "Toggle column 7 comment (*)" })
+
+  vim.api.nvim_create_user_command("CobolGotoDef", function()
+    require("cobol.navigation").goto_definition()
+  end, { desc = "COBOL: Jump to definition (paragraph/data)" })
+
+  vim.api.nvim_create_user_command("CobolGotoCopybook", function()
+    require("cobol.navigation").goto_copybook()
+  end, { desc = "COBOL: Open copybook file" })
+
+  vim.api.nvim_create_user_command("CobolPreview", function()
+    require("cobol.navigation").hover_preview()
+  end, { desc = "COBOL: Preview definition or copybook under cursor" })
 
   -- 针对 COBOL 文件类型的自动命令
   local group = vim.api.nvim_create_augroup("CobolNvimGroup", { clear = true })
