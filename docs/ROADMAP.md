@@ -18,7 +18,7 @@
 |---|---|---|---|---|
 | **Phase 1** | **穿孔卡标尺与安全边界** | 7/8/12/73 纯细线标尺、Winbar 动态打孔卡刻度、72 列越界波浪红告警、第 7 列智能注释、智能 Tab 吸附、列跳转快捷键 | **已完成 (v0.1.0) ✅** | `<leader>uc`, `g7/g8/g12/g73`, `<leader>c*`, `Tab` |
 | **Phase 2.1** | **大纲结构与层级展示** | Winbar 实时段落面包屑、DATA DIVISION 01/88 级着色、行尾结构回溯 (`← 05`)、Aerial 侧边栏 3 层符号树 (`<leader>cs`) | **已完成 (v0.2.0) ✅** | Winbar, `<leader>cs`, 行尾 Virtual Text |
-| **Phase 2.2** | **代码定义跳转与 Copybook 预览** | `PERFORM`/`GO TO` 段落一键直达 (`gd` / `<C-o>`)、`COPY` Copybook 文件跳转 (`gf`)、`COPY` 行悬浮窗预览结构 (`K`) | **优先开发中 📌** | `gd`, `<C-o>`, `gf`, `K` |
+| **Phase 2.2** | **代码定义跳转与 Copybook 预览** | `PERFORM`/`GO TO` 段落一键直达 (`gd` / `<C-o>`)、`COPY` Copybook 文件跳转 (`gf`)、`COPY` 行悬浮窗预览结构 (`K`) | **已完成 (v0.2.1) ✅** | `gd`, `<C-o>`, `gf`, `K` |
 | **Phase 3** | **数据层级与 PIC 结构计算器** | 单项 PIC 字节换算（支持 `COMP`/`COMP-3`）、`01 RECORD` 自动递归汇总总字节数（Virtual Text / Command） | **进阶计划 📌** | 01 行行尾提示, `:CobolCalcRecord` |
 | **Phase 4** | **编译器实时语法飞检** | GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检、Neovim Diagnostics 映射（标点/列错位/未定义报错） | **安全计划 📌** | 保存/停顿触发 Diagnostics 诊断 |
 | **Phase 5** | **语法折叠与格式化** | Division / Section / Paragraph 语法级折叠 (`za`)、COBOL 保留字大小写规范化 (`:CobolFormatCase`) | **优化计划 📌** | `za`, `:CobolFormatCase` |
@@ -64,18 +64,18 @@
 
 ---
 
-### Phase 2.2: 代码定义跳转与 Copybook 预览（优先实施 📌）
+### Phase 2.2: 代码定义跳转与 Copybook 预览（已完成 ✅）
 
 #### 1. `PERFORM` / `GO TO` 段落一键直达 (`gd`)
 * **痛点**：没有安装大型 COBOL LSP 时，光标停在 `PERFORM 2000-PROCESS-FILE` 上按 `gd` 会提示找不到定义，只能手动 `/` 搜索。
 * **技术方案**：
   - 光标位于某词上时，解析光标当前单词。
-  - 向上或全局正则搜索 `^\s*<WORD>\.\s*$`（顶格在 Area A 且以点结尾的段落/节定义）。
-  - 压入 Neovim 标签栈（`tagstack`），跳转后可直接使用 `<C-o>` 原路跳回。
+  - 向上或全局正则搜索 `^\s*<WORD>\.\s*$`（顶格在 Area A 且以点结尾的段落/节定义），并支持跳至 `DATA DIVISION` 的字段与 `01/05/88/FD`。
+  - 压入 Neovim 标签栈（`tagstack` 与 `jumplist`），跳转后可直接使用 `<C-o>` 原路跳回。
 * **自检项**：
-  - [ ] 光标在 `PERFORM 1000-INITIALIZE` 上按 `gd`，能否直跳第 83 行 `1000-INITIALIZE.`。
-  - [ ] 跳转后按 `<C-o>`，能否精确返回之前的 `PERFORM` 行。
-  - [ ] 若光标所在词不是合法段落名，给出友好的浮窗/状态栏提示。
+  - [x] 光标在 `PERFORM 1000-INITIALIZE` 上按 `gd`，能否直跳第 83 行 `1000-INITIALIZE.`。
+  - [x] 跳转后按 `<C-o>`，能否精确返回之前的 `PERFORM` 行。
+  - [x] 若光标所在词不是合法段落名，给出友好的浮窗/状态栏提示。
 
 #### 2. `COPY` Copybook 文件跳转 (`gf`)
 * **痛点**：COBOL 项目由大量 `.CPY` / `.cbl` 组合而成（如 `COPY "EMP-REC.CPY".`），手工打开极其繁琐。
@@ -85,7 +85,7 @@
   - 配置搜索路径：`copybook_paths = { ".", "./cpy", "./include", "../copybooks", "../include" }`。
   - 找到文件后在当前窗口或以 split 打开。
 * **自检项**：
-  - [ ] 光标停在 `COPY "EMP-REC.CPY".` 行，按 `gf` 能否直接打开 `/home/tetsuya/development/cobol/EMP-REC.CPY`。
+  - [x] 光标停在 `COPY "EMP-REC.CPY".` 行，按 `gf` 能否直接打开 `/home/tetsuya/development/cobol/EMP-REC.CPY`。
 
 #### 3. `COPY` 悬浮窗快速预览 (`K` / Hover)
 * **痛点**：很多时候只是想确认 Copybook 里某个变量的名字和类型，不希望破坏当前的窗口布局去打开一个新 tab 或 split。
@@ -94,8 +94,8 @@
   - 弹出一个带有边框的居中浮动窗口（Floating Window），以 COBOL 语法高亮展示前 30 行（支持滚动）。
   - 按 `q`、`<Esc>` 或光标移走时自动关闭浮窗。
 * **自检项**：
-  - [ ] 光标停在 `COPY "EMP-REC.CPY".` 上按 `K`，是否弹窗显示 `EMP-RECORD` 结构。
-  - [ ] 按 `q` 或 `<Esc>` 是否平滑关闭。
+  - [x] 光标停在 `COPY "EMP-REC.CPY".` 上按 `K`，是否弹窗显示 `EMP-RECORD` 结构。
+  - [x] 按 `q` 或 `<Esc>` 是否平滑关闭。
 
 ---
 

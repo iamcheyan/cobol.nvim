@@ -12,89 +12,77 @@ Modern COBOL development & visual enhancement toolkit for Neovim.
   * 基于 Neovim 原生 `decoration_provider` 与 `virt_text_win_col` 高性能视口渲染。
   * 在第 **7** 列（Indicator）、第 **8** 列（Area A）、第 **12** 列（Area B）、第 **73** 列（Area B 结束）绘制纯细竖线 `│`。
   * **零背景色**，前景色为低对比度淡钢蓝，与代码缩进线浑然一体；遇到文字自动避让，空行短行贯穿整屏。
-* 🏷️ **Winbar 动态打孔卡刻度尺（Punch-Card Header）**：
+* 🏷️ **Winbar 动态打孔卡刻度尺与实时面包屑**：
   * 窗口顶部常驻显示 80 列经典穿孔卡刻度：
     ```text
-    |--SEQ-|*|-A-|-B----------------------------------------------------|--ID--|
-    1......6.7...8.12...................................................72.73....80
+    ..SEQ.*A...B..........................................72IDENT... [ PROCEDURE > 2000-PROCESS ]
     ```
-  * 依据 `textoff` 动态左补空格，与下方代码列 **100% 绝对垂直对应**。
+  * 依据 `textoff` 动态左补空格，与下方代码列 **100% 绝对垂直对应**；右侧动态展示架构路径。
 * ⚠️ **第 72 列越界安全告警（Overflow Linter）**：
-  * 固定格式 COBOL 中，第 73 列以后的字符会被编译器彻底忽略。插件自动用波浪下划线标红超出 72 列的代码字符，防止隐蔽 Bug。
+  * 固定格式 COBOL 中，第 73 列以后的字符会被编译器彻底忽略。插件自动用红色波浪下划线标红超出 72 列的代码字符，防止隐蔽 Bug。
+* 🚀 **过程段落与数据定义直达 (`gd` / `<C-o>`)**：
+  * 光标停在 `PERFORM 1000-INITIALIZE` 上按 `gd` 直达第 83 行段落定义；
+  * 光标停在变量名（如 `WS-FLAGS`、`INPUT-RECORD`、`EOF-YES`）上按 `gd` 直跳 `DATA DIVISION` 声明行；
+  * 原生集成 Neovim Jumplist 与 Tagstack，按 `<C-o>`（或 `<C-t>`）无缝原路跳回！
+* 📖 **Copybook 文件打开与悬停浮窗预览 (`gf` / `K`)**：
+  * 光标在 `COPY "EMP-REC.CPY".` 上按 `gf`：在预设路径中自动检索并直接打开目标文件；
+  * 在 `COPY` 行或过程段落名上按 `K`：居中弹出圆角浮动窗口（COBOL 语法高亮），就地预览内容，按 `q` 或 `<Esc>` 随手关闭，绝不打断思路。
+* 🗺️ **Aerial 侧边栏层级大纲 (`<leader>cs`)**：
+  * 3 层树状符号大纲：Divisions -> Sections -> Paragraphs / FDs / 01 级记录；
+  * 支持回车跳转与双向光标跟随高亮。
 * 💬 **第 7 列智能注释切换**：
   * `<leader>c*` / `:CobolToggleComment`：精准在第 7 列插入或移除 `*` 注释符，支持单行与 Visual 多行选区，绝不破坏原有代码缩进。
 * ⚡ **智能 Tab 吸附与列跳转**：
   * 行首缩进时按 Tab：1-6 列自动跳至第 8 列（Area A），7-11 列自动跳至第 12 列（Area B）。
   * 快捷跳转：`g7`（Indicator）、`g8`（Area A）、`g12`（Area B）、`g73`（Identification）。
+* 🔍 **数据层级宿主回溯 (Hierarchy Parent Hint)**：
+  * 光标停留在深层嵌套字段（如 `10 IN-FULL-NAME`）时，行尾以淡灰斜体显示父级与顶层对象：`← 05 IN-NAME-GROUP (01 WS-INPUT-FIELDS)`。
 * 🛡️ **智能屏蔽干扰**：
   * 自动在 COBOL 缓冲区静默通用语言缩进线（`indent-blankline.nvim`），避免多重线条互相冲突。
 
 ---
 
-## 安装与配置 (Installation)
-
-### 使用 lazy.nvim
-
-```lua
-return {
-  {
-    "iamcheyan/cobol.nvim", -- 或通过本地私有目录加载
-    ft = { "cobol", "cbl", "cob" },
-    opts = {
-      enabled = true,
-      columns = { 7, 8, 12, 73 },
-      show_lines = true,         -- 启用细标尺线 (│)
-      char = "│",                -- 标尺字符
-      show_winbar = true,        -- 顶部打孔卡刻度
-      show_colorcolumn = false,  -- 禁用粗背景色块
-      highlight_overflow = true, -- 第 72 列越界告警
-      overflow_col = 72,
-      disable_indent_guide = true,-- 静默通用缩进线
-      smart_tab = true,          -- 智能 Tab 对齐
-      smart_comments = true,     -- 第 7 列智能注释
-      keymaps = true,            -- 注册默认快捷键
-    },
-    config = function(_, opts)
-      require("cobol").setup(opts)
-    end,
-  },
-}
-```
-
----
-
 ## 快捷键一览 (Keymaps)
 
-| 快捷键 | 模式 | 功能说明 |
-|---|---|---|
-| `<leader>uc` | Normal | 一键开关整个 COBOL 标尺与 Winbar 刻度 |
-| `<leader>c*` | Normal / Visual | 在第 7 列插入/移除 `*` 注释标记（支持选中多行） |
-| `g7` | Normal | 光标直跳第 7 列（Indicator 列） |
-| `g8` | Normal | 光标直跳第 8 列（Area A 起始） |
-| `g12` | Normal | 光标直跳第 12 列（Area B 起始） |
-| `g73` | Normal | 光标直跳第 73 列（Identification 识别区起始） |
-| `<Tab>` | Insert | 行首或前导空白处自动吸附到第 8 列或第 12 列 |
+| 快捷键 | 模式 | 适用对象 | 功能说明 |
+|---|---|---|---|
+| `<leader>uc` | Normal | 全局 | 一键开关整个 COBOL 细线标尺与 Winbar 刻度 |
+| `<leader>cs` | Normal | 全局 | 呼出/隐藏 Aerial 符号大纲侧边栏 |
+| `gd` | Normal | 段落 / 变量 / Copybook | **直达定义**（跳到段落定义行、数据字段行或 Copybook 文件） |
+| `<C-o>` | Normal | 全局 | **跳回原位置**（Neovim 原生 Jumplist 回退） |
+| `gf` | Normal | `COPY` 语句 | **打开文件**（直接打开光标处的 Copybook 实体文件） |
+| `K` | Normal | `COPY` / `PERFORM` / 变量 | **悬停预览**（居中弹窗就地预览 Copybook 内容或过程定义片段） |
+| `g7` | Normal | 当前行 | 光标直跳第 7 列（Indicator 注释列） |
+| `g8` | Normal | 当前行 | 光标直跳第 8 列（Area A 起始） |
+| `g12` | Normal | 当前行 | 光标直跳第 12 列（Area B 起始） |
+| `g73` | Normal | 当前行 | 光标直跳第 73 列（Identification 识别区起始） |
+| `<leader>c*` | Normal / Visual | 当前行 / 多选选区 | 在第 7 列插入/移除 `*` 注释标记（支持选中多行） |
+| `<Tab>` | Insert | 行首或前导空白 | 行首或前导空白处自动吸附到第 8 列或第 12 列 |
+| `q` 或 `<Esc>` | Normal | 预览浮窗内 | 随手关闭悬停预览浮窗 |
 
 ---
 
 ## 用户命令 (Commands)
 
-* `:CobolGuideToggle` - 切换标尺与 Winbar
+* `:CobolGotoDef` - 直达定义行（等价于 `gd`）
+* `:CobolGotoCopybook` - 打开 Copybook 文件（等价于 `gf`）
+* `:CobolPreview` - 弹窗预览光标处 Copybook 或过程定义（等价于 `K`）
+* `:CobolToggleComment` - 在第 7 列切换注释（等价于 `<leader>c*`）
+* `:CobolGuideToggle` - 切换标尺与 Winbar（等价于 `<leader>uc`）
 * `:CobolGuideEnable` - 开启标尺与 Winbar
 * `:CobolGuideDisable` - 关闭标尺与 Winbar
-* `:CobolToggleComment` - 在第 7 列切换注释
 
 ---
 
 ## 路线图与功能验证 (Roadmap & Verification)
 
-详细功能规划、实现规格与测试自检清单请参见 [docs/ROADMAP.md](docs/ROADMAP.md)：
+详细功能规划、实现规格与测试自检清单请参见 [docs/ROADMAP.md](docs/ROADMAP.md) 以及手册 [COBOL_NVIM_GUIDE.md](../../docs/COBOL_NVIM_GUIDE.md)：
 * **Phase 1: 穿孔卡标尺与安全边界**（已完成 ✅）：纯细线标尺、Winbar 刻度、72 列溢出告警、第 7 列注释、快捷跳转与 Tab 吸附。
 * **Phase 2.1: 结构大纲与层级展示**（已完成 ✅）：Winbar 段落面包屑、01/88 级高亮与行尾宿主回溯、Aerial 侧边栏 3 层符号树（`<leader>cs`）。
-* **Phase 2.2: 代码定义跳转与 Copybook 预览**（优先实施中 📌）：`PERFORM` / `GO TO` 段落一键直达（`gd` / `<C-o>`）、`COPY` Copybook 文件跳转（`gf`）与悬浮窗预览（`K`）。
-* **Phase 3: 数据层级与 PIC 结构计算器**（进阶实施 📌）：单项 `PIC` 字节换算、`01 RECORD` 自动递归汇总总字节数。
-* **Phase 4: 编译器实时语法飞检**（安全实施 📌）：GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检与 Diagnostics 映射。
-* **Phase 5: 语法折叠与格式化**（优化实施 📌）：Division/Section/Paragraph 语法级折叠（`za`）、保留字大小写规范化。
+* **Phase 2.2: 代码定义跳转与 Copybook 预览**（已完成 ✅）：`PERFORM` / `GO TO` 段落一键直达（`gd` / `<C-o>`）、`COPY` Copybook 文件跳转（`gf`）与悬浮窗预览（`K`）。
+* **Phase 3: 数据层级与 PIC 结构计算器**（进阶计划 📌）：单项 `PIC` 字节换算、`01 RECORD` 自动递归汇总总字节数。
+* **Phase 4: 编译器实时语法飞检**（安全计划 📌）：GnuCOBOL (`cobc -fsyntax-only`) 异步语法飞检与 Diagnostics 映射。
+* **Phase 5: 语法折叠与格式化**（优化计划 📌）：Division/Section/Paragraph 语法级折叠（`za`）、保留字大小写规范化。
 
 ---
 
