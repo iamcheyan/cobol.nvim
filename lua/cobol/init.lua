@@ -631,6 +631,7 @@ function M.attach(bufnr)
     map("n", "g73", function() M.jump_to_col(73) end, "COBOL: Jump to Identification (Col 73)")
 
     -- 第 7 列注释切换快捷键
+    map("n", "gcc", function() M.toggle_comment() end, "COBOL: Toggle Col 7 Comment (*)")
     map("n", "<leader>c*", function() M.toggle_comment() end, "COBOL: Toggle Col 7 Comment (*)")
     map("x", "<leader>c*", function()
       local start_line = vim.fn.line("'<")

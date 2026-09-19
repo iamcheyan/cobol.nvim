@@ -34,4 +34,13 @@ local free_buf = vim.api.nvim_create_buf(false, true)
 vim.api.nvim_buf_set_lines(free_buf, 0, -1, false, { "IDENTIFICATION DIVISION." })
 assert(cobol.detect_format(free_buf) == "free", "free-format source should be detected")
 
+local cobol_buf = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_buf_set_lines(cobol_buf, 0, -1, false, { "       DISPLAY 'TEST'." })
+vim.bo[cobol_buf].filetype = "cobol"
+vim.api.nvim_set_current_buf(cobol_buf)
+cobol.attach(cobol_buf)
+local gcc_map = vim.fn.maparg("gcc", "n", false, true)
+assert(gcc_map.buffer == 1, "COBOL gcc mapping should be buffer-local")
+assert(gcc_map.desc == "COBOL: Toggle Col 7 Comment (*)", "COBOL gcc should use fixed-format comments")
+
 print("config_spec: OK")
