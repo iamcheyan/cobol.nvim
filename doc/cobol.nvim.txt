@@ -1,7 +1,7 @@
 *cobol.nvim*
 
-COBOL support for Neovim with fixed-format guides, navigation, PIC size
-calculation, folding, case formatting, and GnuCOBOL diagnostics. Aerial is an
+COBOL support for Neovim with fixed-format guides, navigation, completion, PIC
+size calculation, folding, case formatting, and GnuCOBOL diagnostics. Aerial is an
 optional Neovim plugin that provides a searchable code-structure Outline
 sidebar; this plugin supplies its COBOL backend.
 
@@ -9,6 +9,7 @@ sidebar; this plugin supplies its COBOL backend.
 CONTENTS                                                            *cobol.nvim*
 
   Setup                         |cobol-setup|
+  Completion                    |cobol-completion|
   Commands                      |cobol-commands|
   Configuration                 |cobol-configuration|
 
@@ -22,6 +23,16 @@ Install iamcheyan/cobol.nvim with your plugin manager and call:
 Aerial is optional. Install it when you want a searchable code-structure
 Outline sidebar, then add the COBOL backend to Aerial's `backends` filetype
 map.
+
+COMPLETION                                                        *cobol-completion*
+
+When blink.cmp is installed, cobol.nvim automatically registers a completion
+source for `cobol`, `cbl`, and `cob` buffers. It provides COBOL keywords,
+verbs, clauses, snippets, names declared in the current buffer, and symbols
+from referenced Copybooks. A COBOL language server is not required.
+
+Completion is optional. The fixed-format guide, navigation, calculator,
+folding, formatting, and diagnostics work without blink.cmp.
 
 ===============================================================================
 COMMANDS                                                            *cobol-commands*
@@ -47,6 +58,7 @@ cobc_extra_args          Additional compiler arguments.
 folding.enable           Enable structural COBOL folding.
 diagnostics.enable       Enable asynchronous compiler diagnostics.
 diagnostics.debounce_ms  Delay for TextChanged diagnostics.
+completion.enable        Enable the optional blink.cmp completion source.
 
 See README.md and docs/TASKS.md for examples, supported limitations, and the
 development checklist.

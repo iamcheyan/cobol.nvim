@@ -37,6 +37,9 @@ local default_config = {
     dialect = nil,              -- COBOL 方言 (默认 nil 使用 GnuCOBOL 原生)
     copybook_paths = nil,      -- 兼容旧配置；默认继承顶层 copybook_paths
   },
+  completion = {
+    enable = true,              -- 如果安装 blink.cmp，自动注册 COBOL source
+  },
 }
 
 M.config = vim.deepcopy(default_config)
@@ -46,6 +49,26 @@ M.state = {
 
 M.ns_ruler = vim.api.nvim_create_namespace("cobol_nvim_ruler")
 M.ns_hint = vim.api.nvim_create_namespace("cobol_nvim_hint")
+
+function M.register_completion()
+  if not M.config.completion or not M.config.completion.enable then return false end
+
+  local ok, blink = pcall(require, "blink.cmp")
+  if not ok or type(blink.add_source_provider) ~= "function" then return false end
+
+  pcall(blink.add_source_provider, "cobol", {
+    name = "COBOL",
+    module = "cobol.completion.blink",
+    score_offset = 10,
+  })
+
+  if type(blink.add_filetype_source) == "function" then
+    for _, filetype in ipairs({ "cobol", "cbl", "cob" }) do
+      pcall(blink.add_filetype_source, filetype, "cobol")
+    end
+  end
+  return true
+end
 
 function M.get_project_root(bufnr, current_file)
   local configured = M.config.project_root
@@ -850,6 +873,16 @@ function M.setup(opts)
       M.attach(ev.buf)
     end,
   })
+
+  -- blink.cmp is commonly lazy-loaded on InsertEnter. Register here and
+  -- retry at InsertEnter so the plugin remains optional and load-order safe.
+  vim.api.nvim_create_autocmd("InsertEnter", {
+    group = group,
+    callback = function()
+      M.register_completion()
+    end,
+  })
+  M.register_completion()
 
   vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
     group = group,

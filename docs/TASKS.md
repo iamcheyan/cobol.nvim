@@ -11,6 +11,7 @@
 - [x] Phase 3：PIC 基础计算和 `01` 记录布局
 - [x] Phase 4：GnuCOBOL 异步诊断、Quickfix 和 Copybook 诊断关联
 - [x] Phase 5：语法折叠和关键字格式化
+- [x] Phase 6：COBOL 关键字、代码片段、数据名和 Copybook 补全
 
 ## P0：先修复正确性和可独立使用性
 
@@ -42,6 +43,15 @@ COBOL backend，让它能够显示 Division、Section、Paragraph 和数据记�
 - [x] 为不存在 `cobc`、不可读 Copybook 和无效 buffer 提供稳定降级行为
 
 ## P1：完成 Phase 5
+
+### 补全
+
+- [x] 提供常用 COBOL 动词、子句、级别号和内置函数候选项
+- [x] 提供 `IF`、`EVALUATE`、`PERFORM`、`READ`、`WRITE` 等结构化代码片段
+- [x] 从当前缓冲区收集字段、条件名、段落、Section 和 Copybook 名称
+- [x] 扫描当前文件引用的 Copybook，并将其中的定义加入候选项
+- [x] 通过可选的 blink.cmp source 自动接入 `cobol`、`cbl`、`cob` 文件类型
+- [x] 在没有 blink.cmp 时保持其他插件功能可用
 
 ### 语法折叠
 

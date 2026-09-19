@@ -23,6 +23,7 @@
 | 固定格式布局 | 第 7、8、12、73 列标尺、越界高亮、列跳转 | 直观看到 COBOL 各个源码区域 |
 | 结构与导航 | Winbar 面包屑、折叠、`gd`、`gf`、`K` | 快速浏览 Division、段落、字段和 Copybook |
 | 数据布局 | PIC 和记录大小估算，支持 `OCCURS`、`REDEFINES` | 帮助理解记录在内存中的组织方式 |
+| 代码补全 | COBOL 关键字、动词、子句、代码片段、数据名、段落和 Copybook | 减少重复输入，也帮助你熟悉 COBOL 的词汇和程序结构 |
 | 诊断 | 异步执行 `cobc -fsyntax-only`，集成 Quickfix | 编辑时发现语法错误，不阻塞界面 |
 | 编辑辅助 | 注释切换、智能 Tab、保留字大小写格式化 | 减少固定格式代码中的重复操作 |
 | 可选大纲 | Aerial（Neovim 代码结构侧边栏）和 COBOL backend | 提供可搜索的程序结构树 |
@@ -30,6 +31,7 @@
 ## 环境要求
 
 - Neovim 0.10 或更高版本；
+- [blink.cmp](https://github.com/saghen/blink.cmp) 是可选依赖。安装后会启用内置的 COBOL 补全源；
 - GnuCOBOL（`cobc`）是可选的，安装后才能使用编译器诊断；
 - Aerial 是可选的。它是 Neovim 的代码结构/Outline 侧边栏插件，只在需要大纲视图时安装。
 
@@ -105,6 +107,14 @@
 | `za` / `zc` / `zo` | 切换、关闭、打开当前折叠 |
 
 插件自带的 Aerial backend 可以识别 Division、Section、Paragraph、文件描述和 01 级记录；Aerial 会把这些符号显示在可搜索的 Neovim 侧边栏中。不安装 Aerial 时，其他导航功能仍然可用。
+
+## 代码补全
+
+安装 `blink.cmp` 后，插件会在 `cobol`、`cbl` 和 `cob` 文件中自动注册 COBOL 补全源，不需要 COBOL 语言服务器。
+
+补全内容包括常用 COBOL 动词和子句、可展开的代码片段（例如 `IF ... END-IF` 和 `PERFORM ... END-PERFORM`）、当前文件中声明的数据名，以及 `COPY` 引用的 Copybook 中的符号。补全不区分大小写，输入 `PER`、`WS-` 或 `COPY` 这样的前缀即可看到候选项。
+
+`blink.cmp` 只是可选的编辑辅助功能；即使不安装它，标尺、导航、计算器、折叠、格式化和诊断功能仍然可用。
 
 在行首或前导空白处，Insert 模式的 `<Tab>` 会自动靠近 Area A 或 Area B。`<leader>c*` 和 `:CobolToggleComment` 会在第 7 列添加或移除固定格式注释符，也支持 Visual 选区。
 

@@ -23,6 +23,7 @@ The core features work without Aerial. Aerial is an optional Neovim plugin that 
 | Fixed-format layout | Guides for columns 7, 8, 12, and 73; overflow highlighting; column jumps | Makes COBOL's source areas visible while you edit |
 | Structure and navigation | Winbar breadcrumbs, folding, `gd`, `gf`, and `K` | Helps you move through Divisions, paragraphs, fields, and copybooks |
 | Data layout | PIC and record-size estimates, including `OCCURS` and `REDEFINES` | Gives beginners a practical view of record storage |
+| Completion | COBOL keywords, verbs, clauses, snippets, data names, paragraphs, and copybooks | Reduces typing and helps you discover the vocabulary and structure of a program |
 | Diagnostics | Asynchronous `cobc -fsyntax-only` checks and Quickfix integration | Finds syntax errors without blocking the editor |
 | Editing helpers | Comment toggle, smart Tab, reserved-word case formatting | Reduces repetitive work in fixed-format source |
 | Optional outline | Aerial, a Neovim code-structure sidebar, with the COBOL backend | Provides a searchable tree of the program |
@@ -30,6 +31,7 @@ The core features work without Aerial. Aerial is an optional Neovim plugin that 
 ## Requirements
 
 - Neovim 0.10 or newer.
+- [blink.cmp](https://github.com/saghen/blink.cmp) is optional. Install it to enable the built-in COBOL completion source.
 - GnuCOBOL (`cobc`) is optional. Install it to use compiler diagnostics.
 - Aerial is optional. It is a Neovim code-structure/Outline sidebar plugin; install it only if you want the outline view.
 
@@ -114,6 +116,14 @@ At the start of a line, Insert-mode `<Tab>` moves input toward Area A or Area B 
 - `<leader>cs`: toggle the optional Aerial Outline sidebar.
 
 The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Aerial displays these symbols in a searchable Neovim sidebar; without Aerial, all other navigation features remain available.
+
+## Completion
+
+When `blink.cmp` is installed, the plugin registers a COBOL completion source automatically for `cobol`, `cbl`, and `cob` buffers. It does not require a COBOL language server.
+
+The source suggests common COBOL verbs and clauses, ready-to-expand snippets such as `IF ... END-IF` and `PERFORM ... END-PERFORM`, names declared in the current buffer, and symbols found in referenced Copybooks. Suggestions are case-insensitive and are most useful after typing a word prefix such as `PER`, `WS-`, or `COPY`.
+
+Completion is an optional convenience: the ruler, navigation, calculator, folding, formatting, and diagnostics continue to work without `blink.cmp`.
 
 ## Folding and formatting
 

@@ -23,6 +23,7 @@ Neovim で COBOL を編集するためのプラグインです。固定形式 CO
 | 固定形式 | 7、8、12、73 列のガイド、範囲外の強調、列ジャンプ | COBOL の各ソース領域を確認しながら編集できる |
 | 構造と移動 | Winbar のパンくず、折りたたみ、`gd`、`gf`、`K` | Division、段落、フィールド、Copybook をたどりやすい |
 | データレイアウト | PIC とレコードサイズの推定、`OCCURS`、`REDEFINES` 対応 | レコードのメモリ上の構成を学べる |
+| コード補完 | COBOL のキーワード、動詞、句、スニペット、データ名、段落、Copybook | 入力を減らし、COBOL の語彙とプログラム構造を学びやすくする |
 | 診断 | 非同期の `cobc -fsyntax-only` と Quickfix | エディターを止めずに構文エラーを確認できる |
 | 編集補助 | コメント切り替え、スマート Tab、予約語の大文字化 | 固定形式 COBOL の反復作業を減らせる |
 | オプションのアウトライン | Aerial（Neovim のコード構造サイドバー）用 COBOL backend | プログラム構造を検索できる |
@@ -30,6 +31,7 @@ Neovim で COBOL を編集するためのプラグインです。固定形式 CO
 ## 必要条件
 
 - Neovim 0.10 以降
+- [blink.cmp](https://github.com/saghen/blink.cmp) は任意です。インストールすると内蔵の COBOL 補完ソースが有効になります。
 - GnuCOBOL（`cobc`）は任意。コンパイラー診断を使う場合に必要です。
 - Aerial は任意です。Neovim のコード構造 Outline サイドバーを使う場合にインストールします。
 
@@ -103,6 +105,14 @@ Aerial のコード構造サイドバーを使う場合は、Aerial と COBOL ba
 | `<C-o>` | ジャンプリストで戻る |
 | `<leader>cs` | Aerial Outline サイドバーを切り替える |
 | `za` / `zc` / `zo` | 折りたたみを切り替え、閉じる、開く |
+
+## コード補完
+
+`blink.cmp` をインストールすると、`cobol`、`cbl`、`cob` のバッファーで COBOL 補完ソースが自動的に登録されます。COBOL 言語サーバーは必要ありません。
+
+一般的な COBOL の動詞と句、`IF ... END-IF` や `PERFORM ... END-PERFORM` のような展開可能なスニペット、現在のファイルで定義されたデータ名、`COPY` で参照された Copybook のシンボルを候補に表示します。大文字と小文字は区別せず、`PER`、`WS-`、`COPY` などの接頭辞を入力すると候補を絞り込めます。
+
+`blink.cmp` は任意の編集補助機能です。インストールしなくても、列ガイド、移動、計算、折りたたみ、整形、診断は利用できます。
 
 Division、Section、Paragraph、データレコードをネイティブに折りたためます。Insert モードの `<Tab>` は Area A または Area B に合わせて入力位置を移動します。`<leader>c*` と `:CobolToggleComment` は 7 列目のコメントを追加・削除します。
 
