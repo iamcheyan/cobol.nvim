@@ -109,13 +109,22 @@ function M.find_definition(target, bufnr)
   bufnr = bufnr or vim.api.nvim_get_current_buf()
   local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local upper_target = target:upper()
+  local cursor_line = vim.api.nvim_win_get_cursor(0)[1]
+  local line_order = {}
+  for lnum = cursor_line, #lines do
+    line_order[#line_order + 1] = lnum
+  end
+  for lnum = 1, cursor_line - 1 do
+    line_order[#line_order + 1] = lnum
+  end
 
   local escaped = vim.pesc(upper_target)
   local pattern_para = "^%s*" .. escaped .. "%s*[%s%.]"
   local pattern_sec = "^%s*" .. escaped .. "%s+SECTION%s*[%s%.]"
 
   -- 1. 优先在 PROCEDURE DIVISION 查找 Paragraph 或 Section
-  for lnum, raw_line in ipairs(lines) do
+  for _, lnum in ipairs(line_order) do
+    local raw_line = lines[lnum]
     local is_comment = false
     if #raw_line >= 7 and (raw_line:sub(7, 7) == "*" or raw_line:sub(7, 7) == "/") then
       is_comment = true
@@ -147,7 +156,8 @@ function M.find_definition(target, bufnr)
   local pattern_data = "^%s*%d%d%s+" .. escaped .. "%f[%s%.]"
   local pattern_fd = "^%s*[FfSs][Dd]%s+" .. escaped .. "%f[%s%.]"
 
-  for lnum, raw_line in ipairs(lines) do
+  for _, lnum in ipairs(line_order) do
+    local raw_line = lines[lnum]
     local is_comment = false
     if #raw_line >= 7 and (raw_line:sub(7, 7) == "*" or raw_line:sub(7, 7) == "/") then
       is_comment = true
