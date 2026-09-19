@@ -1,8 +1,9 @@
 *cobol.nvim*
 
 COBOL support for Neovim with fixed-format guides, navigation, PIC size
-calculation, optional Aerial symbols, folding, case formatting, and GnuCOBOL
-diagnostics.
+calculation, folding, case formatting, and GnuCOBOL diagnostics. Aerial is an
+optional Neovim plugin that provides a searchable code-structure Outline
+sidebar; this plugin supplies its COBOL backend.
 
 ===============================================================================
 CONTENTS                                                            *cobol.nvim*
@@ -18,8 +19,9 @@ Install iamcheyan/cobol.nvim with your plugin manager and call:
 
     require("cobol").setup({})
 
-Aerial is optional. Add the COBOL backend to Aerial's `backends` filetype map
-when Aerial is installed.
+Aerial is optional. Install it when you want a searchable code-structure
+Outline sidebar, then add the COBOL backend to Aerial's `backends` filetype
+map.
 
 ===============================================================================
 COMMANDS                                                            *cobol-commands*

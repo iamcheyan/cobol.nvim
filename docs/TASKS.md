@@ -16,6 +16,9 @@
 
 ### Aerial 迁移
 
+Aerial 是 Neovim 的代码结构大纲（Outline）侧边栏插件；本项目提供可选的
+COBOL backend，让它能够显示 Division、Section、Paragraph 和数据记录。
+
 - [x] 将 Aerial backend 移入 `lua/aerial/backends/cobol.lua`
 - [x] 从公开 `dotfiles` 删除 COBOL 专用 backend
 - [x] 将 Aerial 配置改为可选集成

@@ -8,13 +8,13 @@
 
 ![cobol.nvim 功能概览](assets/cobol.nvim-overview.png)
 
-图中展示了插件的主要工作流：Aerial 结构大纲、固定格式列标尺、COBOL 导航，以及编辑器中的 Copybook 预览。
+图中展示了插件的主要工作流：Aerial 结构大纲、固定格式列标尺、COBOL 导航，以及编辑器中的 Copybook 预览。Aerial 是一个 Neovim 代码结构大纲插件，用侧边栏显示可搜索的 Outline。
 
 ## 适合谁使用？
 
 `cobol.nvim` 适合正在学习固定格式 COBOL 的初学者、维护 `.cob`、`.cbl` 或 `.cobol` 程序的开发者，以及使用 Copybook 和 Division、Section、Paragraph 结构的项目。
 
-核心功能不依赖 Aerial。Aerial 是可选依赖，只用于提供侧边栏大纲。
+核心功能不依赖 Aerial。Aerial 是可选的 Neovim 代码结构大纲插件；`cobol.nvim` 提供供它使用的 COBOL 专用 backend。
 
 ## 功能概览
 
@@ -25,13 +25,13 @@
 | 数据布局 | PIC 和记录大小估算，支持 `OCCURS`、`REDEFINES` | 帮助理解记录在内存中的组织方式 |
 | 诊断 | 异步执行 `cobc -fsyntax-only`，集成 Quickfix | 编辑时发现语法错误，不阻塞界面 |
 | 编辑辅助 | 注释切换、智能 Tab、保留字大小写格式化 | 减少固定格式代码中的重复操作 |
-| 可选大纲 | Aerial COBOL backend | 提供可搜索的程序结构树 |
+| 可选大纲 | Aerial（Neovim 代码结构侧边栏）和 COBOL backend | 提供可搜索的程序结构树 |
 
 ## 环境要求
 
 - Neovim 0.10 或更高版本；
 - GnuCOBOL（`cobc`）是可选的，安装后才能使用编译器诊断；
-- Aerial 是可选的，只在需要侧边栏大纲时安装。
+- Aerial 是可选的。它是 Neovim 的代码结构/Outline 侧边栏插件，只在需要大纲视图时安装。
 
 ## 安装
 
@@ -45,7 +45,7 @@
 }
 ```
 
-启用可选的 Aerial backend：
+如需使用可选的 Aerial 代码结构侧边栏，请安装 Aerial 并启用 COBOL backend：
 
 ```lua
 {
@@ -85,7 +85,7 @@
 
 1. 打开 COBOL 源文件并观察列标尺。固定格式中，第 7 列是指示区，第 8–11 列是 Area A，第 12–72 列是 Area B，第 73 列开始是标识区。
 2. 在段落名或数据名上按 `gd`；在 `COPY` 语句上按 `gf`，按 `K` 预览段落或 Copybook。
-3. 安装 Aerial 后按 `<leader>cs` 打开结构大纲。
+3. 安装可选的 Aerial Outline 侧边栏后，按 `<leader>cs` 打开结构大纲。
 4. 将光标放在 01 级记录或字段上，按 `<leader>cr` 查看记录布局估算。
 5. 保存文件，或按 `<leader>cl` 使用 GnuCOBOL 执行语法检查。
 6. 使用 `za`、`zc`、`zo` 折叠或展开当前结构。
@@ -101,10 +101,10 @@
 | `gf` / `:CobolGotoCopybook` | 打开光标所在的 Copybook |
 | `K` / `:CobolPreview` | 浮动窗口预览段落或 Copybook |
 | `<C-o>` | 通过 Neovim 跳转列表返回 |
-| `<leader>cs` | 切换可选的 Aerial 大纲 |
+| `<leader>cs` | 切换可选的 Aerial Outline 侧边栏 |
 | `za` / `zc` / `zo` | 切换、关闭、打开当前折叠 |
 
-插件自带的 Aerial backend 可以识别 Division、Section、Paragraph、文件描述和 01 级记录。不安装 Aerial 时，其他导航功能仍然可用。
+插件自带的 Aerial backend 可以识别 Division、Section、Paragraph、文件描述和 01 级记录；Aerial 会把这些符号显示在可搜索的 Neovim 侧边栏中。不安装 Aerial 时，其他导航功能仍然可用。
 
 在行首或前导空白处，Insert 模式的 `<Tab>` 会自动靠近 Area A 或 Area B。`<leader>c*` 和 `:CobolToggleComment` 会在第 7 列添加或移除固定格式注释符，也支持 Visual 选区。
 
@@ -154,7 +154,7 @@ nvim INPUTCSV.COB
 ## 常见问题
 
 - **没有列标尺：** 检查 `:set filetype?` 是否显示 `cobol`。
-- **没有大纲：** Aerial 是可选依赖，请安装并加入上面的配置。
+- **没有大纲：** 侧边栏由可选的 Aerial Neovim 插件提供，请安装它并加入上面的配置。
 - **没有编译器诊断：** 运行 `:echo executable('cobc')`，安装 GnuCOBOL 或修正 `cobc_command`。
 - **找不到 Copybook：** 设置 `project_root`，并将目录加入 `copybook_paths`。
 - **布局大小不同：** 计算器结果只是估算值，请用编译器和平台文档确认。

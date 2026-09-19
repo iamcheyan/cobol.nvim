@@ -8,13 +8,13 @@ The plugin helps you read existing COBOL programs, understand their layout, find
 
 ![cobol.nvim overview](assets/cobol.nvim-overview.png)
 
-The screenshot shows the main workflow: the Aerial structure outline, fixed-format column guides, COBOL navigation, and a copybook preview in the editor.
+The screenshot shows the main workflow: the Aerial structure outline, fixed-format column guides, COBOL navigation, and a copybook preview in the editor. Aerial is a Neovim plugin that provides a searchable code-structure Outline sidebar.
 
 ## Who is it for?
 
 `cobol.nvim` is useful for beginners learning fixed-format COBOL, developers maintaining `.cob`, `.cbl`, or `.cobol` programs, and projects that use copybooks and traditional Division/Section/Paragraph structure.
 
-The core features work without Aerial. Aerial is an optional dependency for a sidebar outline.
+The core features work without Aerial. Aerial is an optional Neovim plugin that provides the sidebar outline; `cobol.nvim` supplies the COBOL-specific backend that feeds it.
 
 ## Features
 
@@ -25,13 +25,13 @@ The core features work without Aerial. Aerial is an optional dependency for a si
 | Data layout | PIC and record-size estimates, including `OCCURS` and `REDEFINES` | Gives beginners a practical view of record storage |
 | Diagnostics | Asynchronous `cobc -fsyntax-only` checks and Quickfix integration | Finds syntax errors without blocking the editor |
 | Editing helpers | Comment toggle, smart Tab, reserved-word case formatting | Reduces repetitive work in fixed-format source |
-| Optional outline | Aerial backend for COBOL | Provides a searchable sidebar tree |
+| Optional outline | Aerial, a Neovim code-structure sidebar, with the COBOL backend | Provides a searchable tree of the program |
 
 ## Requirements
 
 - Neovim 0.10 or newer.
 - GnuCOBOL (`cobc`) is optional. Install it to use compiler diagnostics.
-- Aerial is optional. Install it only if you want the outline sidebar.
+- Aerial is optional. It is a Neovim code-structure/Outline sidebar plugin; install it only if you want the outline view.
 
 ## Installation
 
@@ -45,7 +45,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
-To enable the optional Aerial backend:
+To add the optional Aerial code-structure sidebar, install Aerial and enable the COBOL backend:
 
 ```lua
 {
@@ -87,7 +87,7 @@ The defaults are suitable for a small project. A project-specific setup can look
 
 1. Open a COBOL source file and check the column guides. In fixed-format code, column 7 is the indicator area, columns 8–11 are Area A, columns 12–72 are Area B, and column 73 starts the identification area.
 2. Use `gd` on a paragraph or data name. Use `gf` on a `COPY` statement and `K` to preview a paragraph or copybook.
-3. If Aerial is installed, press `<leader>cs` to open the structure outline.
+3. If the optional Aerial Outline sidebar is installed, press `<leader>cs` to open the structure outline.
 4. Place the cursor on a level-01 record or field and press `<leader>cr` to inspect the estimated layout.
 5. Save the file or press `<leader>cl` to run a syntax check with GnuCOBOL.
 6. Use `za`, `zc`, and `zo` to fold or unfold the current COBOL structure.
@@ -111,9 +111,9 @@ At the start of a line, Insert-mode `<Tab>` moves input toward Area A or Area B 
 - `gf` / `:CobolGotoCopybook`: open the copybook under the cursor.
 - `K` / `:CobolPreview`: preview a paragraph or copybook in a floating window.
 - `<C-o>`: return through Neovim's jump list.
-- `<leader>cs`: toggle the optional Aerial outline.
+- `<leader>cs`: toggle the optional Aerial Outline sidebar.
 
-The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Without Aerial, all other navigation features remain available.
+The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Aerial displays these symbols in a searchable Neovim sidebar; without Aerial, all other navigation features remain available.
 
 ## Folding and formatting
 
@@ -171,7 +171,7 @@ The lessons cover fixed-format source, copybooks, PIC clauses and storage, `REDE
 ## Troubleshooting
 
 - **No column guide:** confirm that `:set filetype?` reports `cobol`.
-- **No outline:** Aerial is optional; install it and add the configuration shown above.
+- **No outline:** the Outline sidebar is provided by the optional Aerial Neovim plugin; install it and add the configuration shown above.
 - **No diagnostics:** run `:echo executable('cobc')` and install GnuCOBOL or correct `cobc_command`.
 - **Copybook not found:** set `project_root` and include the copybook directories in `copybook_paths`.
 - **Unexpected layout size:** treat calculator output as an estimate and verify the declaration with the compiler and platform documentation.

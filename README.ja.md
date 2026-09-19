@@ -8,13 +8,13 @@ Neovim で COBOL を編集するためのプラグインです。固定形式 CO
 
 ![cobol.nvim の概要](assets/cobol.nvim-overview.png)
 
-スクリーンショットには、Aerial の構造アウトライン、固定形式の列ガイド、COBOL の移動機能、エディター内の Copybook プレビューが表示されています。
+スクリーンショットには、Aerial の構造アウトライン、固定形式の列ガイド、COBOL の移動機能、エディター内の Copybook プレビューが表示されています。Aerial は Neovim のコード構造を検索できる Outline サイドバーを提供するプラグインです。
 
 ## 対象ユーザー
 
 固定形式 COBOL を学び始めた方、`.cob`、`.cbl`、`.cobol` を保守する方、Copybook と Division、Section、Paragraph 構造を使うプロジェクトに適しています。
 
-基本機能は Aerial なしで動作します。Aerial はサイドバーのアウトラインを使う場合だけ必要なオプション依存です。
+基本機能は Aerial なしで動作します。Aerial は Neovim のコード構造 Outline サイドバーを提供するオプションプラグインで、`cobol.nvim` はそのための COBOL backend を提供します。
 
 ## 主な機能
 
@@ -25,13 +25,13 @@ Neovim で COBOL を編集するためのプラグインです。固定形式 CO
 | データレイアウト | PIC とレコードサイズの推定、`OCCURS`、`REDEFINES` 対応 | レコードのメモリ上の構成を学べる |
 | 診断 | 非同期の `cobc -fsyntax-only` と Quickfix | エディターを止めずに構文エラーを確認できる |
 | 編集補助 | コメント切り替え、スマート Tab、予約語の大文字化 | 固定形式 COBOL の反復作業を減らせる |
-| オプションのアウトライン | Aerial 用 COBOL backend | プログラム構造をサイドバーで検索できる |
+| オプションのアウトライン | Aerial（Neovim のコード構造サイドバー）用 COBOL backend | プログラム構造を検索できる |
 
 ## 必要条件
 
 - Neovim 0.10 以降
 - GnuCOBOL（`cobc`）は任意。コンパイラー診断を使う場合に必要です。
-- Aerial は任意。サイドバーのアウトラインを使う場合にインストールします。
+- Aerial は任意です。Neovim のコード構造 Outline サイドバーを使う場合にインストールします。
 
 ## インストール
 
@@ -45,7 +45,7 @@ Neovim で COBOL を編集するためのプラグインです。固定形式 CO
 }
 ```
 
-Aerial backend を有効にする場合：
+Aerial のコード構造サイドバーを使う場合は、Aerial と COBOL backend を有効にします。
 
 ```lua
 {
@@ -85,7 +85,7 @@ Aerial backend を有効にする場合：
 
 1. COBOL ソースを開き、列ガイドを確認します。固定形式では 7 列目が指示領域、8–11 列が Area A、12–72 列が Area B、73 列目以降が識別領域です。
 2. 段落名やデータ名で `gd`、`COPY` 文で `gf`、プレビューには `K` を使います。
-3. Aerial を使う場合は `<leader>cs` で構造アウトラインを開きます。
+3. オプションの Aerial Outline サイドバーを使う場合は `<leader>cs` で構造アウトラインを開きます。
 4. 01 レコードまたはフィールド上で `<leader>cr` を押し、推定レイアウトを確認します。
 5. 保存するか、`<leader>cl` で GnuCOBOL の構文チェックを実行します。
 6. `za`、`zc`、`zo` で現在の構造を折りたたみます。
@@ -101,7 +101,7 @@ Aerial backend を有効にする場合：
 | `gf` / `:CobolGotoCopybook` | Copybook を開く |
 | `K` / `:CobolPreview` | 段落または Copybook をプレビュー |
 | `<C-o>` | ジャンプリストで戻る |
-| `<leader>cs` | Aerial アウトラインを切り替える |
+| `<leader>cs` | Aerial Outline サイドバーを切り替える |
 | `za` / `zc` / `zo` | 折りたたみを切り替え、閉じる、開く |
 
 Division、Section、Paragraph、データレコードをネイティブに折りたためます。Insert モードの `<Tab>` は Area A または Area B に合わせて入力位置を移動します。`<leader>c*` と `:CobolToggleComment` は 7 列目のコメントを追加・削除します。
@@ -152,7 +152,7 @@ nvim INPUTCSV.COB
 ## 困ったときは
 
 - **列ガイドがない：** `:set filetype?` で `cobol` になっているか確認してください。
-- **アウトラインがない：** Aerial は任意です。インストールして上記の設定を追加してください。
+- **アウトラインがない：** サイドバーはオプションの Aerial Neovim プラグインが提供します。インストールして上記の設定を追加してください。
 - **診断がない：** `:echo executable('cobc')` を実行し、GnuCOBOL と `cobc_command` を確認してください。
 - **Copybook が見つからない：** `project_root` と `copybook_paths` を設定してください。
 - **サイズが違う：** 計算結果は推定値です。コンパイラーとプラットフォーム資料で確認してください。

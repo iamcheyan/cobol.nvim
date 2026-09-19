@@ -3,8 +3,9 @@
 本文档记录 `cobol.nvim` 的架构演进、阶段规划与功能验证清单，供开发与日常使用时对照检查。
 
 详细的迁移、测试、兼容性和发布任务请参见 [TASKS.md](TASKS.md)。当前插件源码
-是唯一实现；Aerial backend 位于 `lua/aerial/backends/cobol.lua`，Aerial 本身仍是
-可选依赖。
+是唯一实现；Aerial backend 位于 `lua/aerial/backends/cobol.lua`。Aerial 是一个为
+Neovim 提供可搜索代码结构 Outline 侧边栏的插件，本项目只把 COBOL backend
+作为可选集成提供给它。
 
 ---
 
