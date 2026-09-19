@@ -344,18 +344,6 @@ function M.get_winbar()
     end
   end
 
-  local ok_status, statusline = pcall(require, "cobol.statusline")
-  if ok_status then
-    local context = statusline.format({
-      bufnr = vim.api.nvim_win_get_buf(win_id),
-      winid = win_id,
-      show_breadcrumb = false,
-    })
-    if context ~= "" then
-      table.insert(ruler_parts, "  %#CobolRulerBase#" .. context)
-    end
-  end
-
   table.insert(ruler_parts, "%#Normal#")
   return table.concat(ruler_parts)
 end
