@@ -42,18 +42,18 @@
 
 ### 语法折叠
 
-- [ ] 实现 Division 级折叠
-- [ ] 实现 Section 级折叠
-- [ ] 实现 Paragraph 级折叠
-- [ ] 实现 DATA DIVISION 记录组折叠
-- [ ] 不破坏固定格式列和 Aerial 的折叠联动
+- [x] 实现 Division 级折叠
+- [x] 实现 Section 级折叠
+- [x] 实现 Paragraph 级折叠
+- [x] 实现 DATA DIVISION 记录组折叠
+- [x] 不破坏固定格式列和 Aerial 的折叠联动
 
 ### 关键字格式化
 
-- [ ] 实现 `:CobolFormatCase`
-- [ ] 支持当前行、Visual selection 和全文件范围
-- [ ] 只修改 COBOL 保留字，不修改变量名、字符串、注释和 Copybook 内容
-- [ ] 处理 `END-IF`、`END-PERFORM` 等带连字符关键字
+- [x] 实现 `:CobolFormatCase`
+- [x] 支持当前行、Visual selection 和全文件范围
+- [x] 只修改 COBOL 保留字，不修改变量名、字符串、注释和 Copybook 内容
+- [x] 处理 `END-IF`、`END-PERFORM` 等带连字符关键字
 
 ## P1：解析器和诊断增强
 
@@ -69,10 +69,10 @@
 ## P1：测试与工程化
 
 - [ ] 添加最小 COBOL fixture：固定格式、自由格式、Data Division、Copybook
-- [ ] 为 PIC calculator 增加 Lua 单元测试
+- [x] 为 PIC calculator 增加 Lua 单元测试
 - [ ] 为 Aerial parser 增加结构树快照或断言测试
 - [ ] 为诊断输出解析增加多种 `cobc` 输出样本测试
-- [ ] 增加无 Neovim UI 的 headless smoke test
+- [x] 增加无 Neovim UI 的 headless smoke test
 - [ ] 添加 GitHub Actions：Lua 语法、测试和文档检查
 - [ ] 增加版本/变更记录和发布流程
 

@@ -20,6 +20,9 @@ local default_config = {
   smart_tab = true,            -- 智能对齐 Tab
   smart_comments = true,       -- 第 7 列智能注释切换
   keymaps = true,              -- 默认快捷键
+  folding = {
+    enable = true,              -- 使用 COBOL Division/Section/Paragraph 结构折叠
+  },
   diagnostics = {
     enable = true,              -- 启用 GnuCOBOL 异步语法飞检与诊断
     on_save = true,             -- 保存时立即飞检 (BufWritePost)
@@ -85,6 +88,19 @@ function M.setup_highlights()
   set("CobolRulerCol", {
     bg = "#232832",
   })
+end
+
+local function setup_folding(bufnr)
+  if not M.config.folding or not M.config.folding.enable then
+    return
+  end
+  local win = vim.api.nvim_get_current_win()
+  if vim.api.nvim_win_get_buf(win) ~= bufnr then
+    return
+  end
+  vim.wo[win].foldmethod = "expr"
+  vim.wo[win].foldexpr = "v:lua.require('cobol.folding').foldexpr(v:lnum)"
+  vim.wo[win].foldenable = true
 end
 
 -- 解析当前行在 COBOL 架构中的面包屑路径
@@ -476,6 +492,8 @@ function M.attach(bufnr)
     return
   end
 
+  setup_folding(bufnr)
+
   -- 设置贯穿标尺：默认关闭 colorcolumn 背景色块；仅当显式要求时才开启
   vim.b[bufnr].cobol_orig_colorcolumn = vim.opt_local.colorcolumn:get()
   if M.config.show_colorcolumn and M.state.enabled then
@@ -739,6 +757,17 @@ function M.setup(opts)
     require("cobol.calculator").show_record_layout()
   end, { desc = "COBOL: Calculate memory layout and total byte size of 01 record" })
 
+  vim.api.nvim_create_user_command("CobolFormatCase", function(args)
+    local start_line = args.line1
+    local end_line = args.line2
+    if args.range == 0 then
+      start_line = 1
+      end_line = vim.api.nvim_buf_line_count(0)
+    end
+    local changed = require("cobol.formatter").format_range(0, start_line, end_line)
+    vim.notify(string.format("COBOL: formatted %d line(s)", changed), vim.log.levels.INFO)
+  end, { range = true, desc = "COBOL: Uppercase reserved words" })
+
   vim.api.nvim_create_user_command("CobolLint", function()
     require("cobol.diagnostics").lint(nil, { interactive = true })
   end, { desc = "COBOL: Run real-time GnuCOBOL syntax check (cobc)" })
@@ -859,6 +888,12 @@ function M.setup(opts)
       M.setup_highlights()
     end,
   })
+
+  local current_buf = vim.api.nvim_get_current_buf()
+  local current_ft = vim.bo[current_buf].filetype
+  if current_ft == "cobol" or current_ft == "cbl" or current_ft == "cob" then
+    M.attach(current_buf)
+  end
 end
 
 return M
