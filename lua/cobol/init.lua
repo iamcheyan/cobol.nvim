@@ -317,6 +317,16 @@ function M.get_winbar()
   end
 
   local win_id = vim.api.nvim_get_current_win()
+  if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+    return ""
+  end
+
+  local bufnr = vim.api.nvim_win_get_buf(win_id)
+  local ft = vim.bo[bufnr].filetype
+  if ft ~= "cobol" and ft ~= "cbl" and ft ~= "cob" then
+    return ""
+  end
+
   local ok, wininfo = pcall(vim.fn.getwininfo, win_id)
   local textoff = 0
   if ok and wininfo and wininfo[1] then
@@ -421,7 +431,15 @@ function M.update_hierarchy_hint(bufnr, win_id)
   end
 end
 
--- 清除缓冲区的匹配高亮
+local function is_cobol_buf(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return false
+  end
+  local ft = vim.bo[bufnr].filetype
+  return ft == "cobol" or ft == "cbl" or ft == "cob"
+end
+
+-- 清除窗口的 COBOL 匹配高亮
 local function clear_matches(win_id)
   if win_id and vim.api.nvim_win_is_valid(win_id) then
     local w = vim.w[win_id]
@@ -441,12 +459,28 @@ local function clear_matches(win_id)
       pcall(vim.fn.matchdelete, w.cobol_lvl01_match, win_id)
       w.cobol_lvl01_match = nil
     end
+
+    -- 兜底清理：防止任何 Cobol 高亮匹配残留或跨窗口泄漏
+    local ok, matches = pcall(vim.fn.getmatches, win_id)
+    if ok and type(matches) == "table" then
+      for _, m in ipairs(matches) do
+        if m.group and vim.startswith(m.group, "Cobol") then
+          pcall(vim.fn.matchdelete, m.id, win_id)
+        end
+      end
+    end
   end
 end
 
 -- 设置匹配高亮（72列越界 + Level 88 + Level 01）
 local function setup_matches(win_id)
   if not M.state.enabled or not win_id or not vim.api.nvim_win_is_valid(win_id) then
+    return
+  end
+
+  local bufnr = vim.api.nvim_win_get_buf(win_id)
+  if not is_cobol_buf(bufnr) then
+    clear_matches(win_id)
     return
   end
 
@@ -599,16 +633,15 @@ function M.attach(bufnr)
     end
   end
 
-  -- 设置匹配高亮
-  local win_id = vim.api.nvim_get_current_win()
-  setup_matches(win_id)
-
-  -- 更新宿主回溯提示
-  M.update_hierarchy_hint(bufnr, win_id)
-  if M.config.show_pic_size then
-    local ok_calc, calc = pcall(require, "cobol.calculator")
-    if ok_calc and calc.update_cursor_hint then
-      calc.update_cursor_hint(bufnr, win_id)
+  -- 设置匹配高亮与提示（仅针对显示该 COBOL 缓冲区的窗口）
+  for _, win_id in ipairs(vim.fn.win_findbuf(bufnr)) do
+    setup_matches(win_id)
+    M.update_hierarchy_hint(bufnr, win_id)
+    if M.config.show_pic_size then
+      local ok_calc, calc = pcall(require, "cobol.calculator")
+      if ok_calc and calc.update_cursor_hint then
+        calc.update_cursor_hint(bufnr, win_id)
+      end
     end
   end
 
@@ -704,8 +737,9 @@ function M.detach(bufnr)
   end
 
   -- 清除匹配高亮与提示
-  local win_id = vim.api.nvim_get_current_win()
-  clear_matches(win_id)
+  for _, win_id in ipairs(vim.fn.win_findbuf(bufnr)) do
+    clear_matches(win_id)
+  end
   vim.api.nvim_buf_clear_namespace(bufnr, M.ns_hint, 0, -1)
   pcall(vim.api.nvim_buf_clear_namespace, bufnr, vim.api.nvim_create_namespace("cobol_nvim_calc"), 0, -1)
 
@@ -904,9 +938,11 @@ function M.setup(opts)
   vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
     group = group,
     callback = function(ev)
-      local ft = vim.bo[ev.buf].filetype
-      if ft == "cobol" or ft == "cbl" or ft == "cob" then
-        local win_id = vim.api.nvim_get_current_win()
+      local win_id = vim.api.nvim_get_current_win()
+      if not win_id or not vim.api.nvim_win_is_valid(win_id) then
+        return
+      end
+      if is_cobol_buf(ev.buf) then
         setup_matches(win_id)
         M.update_hierarchy_hint(ev.buf, win_id)
         if M.config.show_pic_size then
@@ -915,6 +951,8 @@ function M.setup(opts)
             calc.update_cursor_hint(ev.buf, win_id)
           end
         end
+      else
+        clear_matches(win_id)
       end
     end,
   })
