@@ -286,9 +286,9 @@ function M.update_cursor_hint(bufnr, win_id)
     local occurs_desc = (item.occurs > 1) and string.format(" x%d", item.occurs) or ""
     local hint = string.format("  /* %d B%s%s */", item.bytes, usage_desc, occurs_desc)
     pcall(vim.api.nvim_buf_set_extmark, bufnr, M.ns_calc, row - 1, 0, {
-      virt_text = { { hint, "CobolSizeHint" } },
-      virt_text_pos = "eol",
-      hl_mode = "combine",
+        virt_text = { { hint, "CobolSizeHint" } },
+        virt_text_pos = "eol",
+        hl_mode = "combine",
     })
   end
 end
