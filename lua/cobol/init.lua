@@ -977,8 +977,9 @@ function M.setup(opts)
   -- 异步语法飞检触发事件
   vim.api.nvim_create_autocmd({ "BufWritePost" }, {
     group = group,
-    pattern = { "*.cob", "*.cbl", "*.cpy", "*.COB", "*.CBL", "*.CPY" },
+    pattern = "*",
     callback = function(ev)
+      if not is_cobol_buf(ev.buf) then return end
       local diag_cfg = (M.config and M.config.diagnostics) or {}
       if diag_cfg.enable and diag_cfg.on_save then
         local ok_diag, diag = pcall(require, "cobol.diagnostics")

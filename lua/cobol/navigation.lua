@@ -21,12 +21,20 @@ M.default_copybook_paths = {
 M.default_extensions = {
   "",
   ".cpy",
-  ".CPY",
   ".cbl",
-  ".CBL",
   ".cob",
-  ".COB",
 }
+
+local function find_case_insensitive(directory, filename)
+  if vim.fn.isdirectory(directory) ~= 1 then return nil end
+  local wanted = filename:lower()
+  for entry in vim.fs.dir(directory) do
+    if entry:lower() == wanted then
+      local candidate = directory .. "/" .. entry
+      if vim.fn.filereadable(candidate) == 1 then return candidate end
+    end
+  end
+end
 
 -- 提取光标所在 COBOL 标识符（连字符 - 为合法符号）
 function M.get_word_under_cursor()
@@ -84,16 +92,12 @@ function M.find_copybook(name, current_file, search_paths)
   for _, rel_dir in ipairs(search_paths) do
     local abs_dir = (rel_dir == ".") and base_dir or vim.fn.simplify(base_dir .. "/" .. rel_dir)
     if has_ext then
-      local candidate = abs_dir .. "/" .. name
-      if vim.fn.filereadable(candidate) == 1 then
-        return candidate
-      end
+      local candidate = find_case_insensitive(abs_dir, name)
+      if candidate then return candidate end
     else
       for _, ext in ipairs(M.default_extensions) do
-        local candidate = abs_dir .. "/" .. name .. ext
-        if vim.fn.filereadable(candidate) == 1 then
-          return candidate
-        end
+        local candidate = find_case_insensitive(abs_dir, name .. ext)
+        if candidate then return candidate end
       end
     end
   end
