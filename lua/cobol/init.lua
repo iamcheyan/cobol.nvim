@@ -539,46 +539,56 @@ end
 function M.toggle_comment(line1, line2)
   line1 = line1 or vim.api.nvim_win_get_cursor(0)[1]
   line2 = line2 or line1
+  if line1 > line2 then line1, line2 = line2, line1 end
   local bufnr = vim.api.nvim_get_current_buf()
 
   local lines = vim.api.nvim_buf_get_lines(bufnr, line1 - 1, line2, false)
   local new_lines = {}
 
-  -- 检查所选行是否大部分已是注释
+  -- 空白行只是排版，不参与注释状态判断，也不添加指示符。
   local all_commented = true
+  local has_source_line = false
   for _, line in ipairs(lines) do
-    if #line >= 7 then
-      local ind = line:sub(7, 7)
-      if ind ~= "*" and ind ~= "/" then
+    if not line:match("^%s*$") then
+      has_source_line = true
+      if #line >= 7 then
+        local ind = line:sub(7, 7)
+        if ind ~= "*" and ind ~= "/" then
+          all_commented = false
+          break
+        end
+      else
         all_commented = false
         break
       end
-    else
-      all_commented = false
-      break
     end
   end
+  if not has_source_line then return end
 
   for _, line in ipairs(lines) do
-    local new_line = line
-    if #new_line < 6 then
-      new_line = new_line .. string.rep(" ", 6 - #new_line)
-    end
-
-    if all_commented then
-      -- 取消注释：第 7 列设为空格
-      if #new_line >= 7 then
-        new_line = new_line:sub(1, 6) .. " " .. new_line:sub(8)
-      end
+    if line:match("^%s*$") then
+      table.insert(new_lines, line)
     else
-      -- 添加注释：第 7 列设为 *
-      if #new_line == 6 then
-        new_line = new_line .. "*"
-      else
-        new_line = new_line:sub(1, 6) .. "*" .. new_line:sub(8)
+      local new_line = line
+      if #new_line < 6 then
+        new_line = new_line .. string.rep(" ", 6 - #new_line)
       end
+
+      if all_commented then
+        -- 取消注释：第 7 列设为空格
+        if #new_line >= 7 then
+          new_line = new_line:sub(1, 6) .. " " .. new_line:sub(8)
+        end
+      else
+        -- 添加注释：第 7 列设为 *
+        if #new_line == 6 then
+          new_line = new_line .. "*"
+        else
+          new_line = new_line:sub(1, 6) .. "*" .. new_line:sub(8)
+        end
+      end
+      table.insert(new_lines, new_line)
     end
-    table.insert(new_lines, new_line)
   end
 
   vim.api.nvim_buf_set_lines(bufnr, line1 - 1, line2, false, new_lines)
@@ -673,13 +683,19 @@ function M.attach(bufnr)
     map("n", "g73", function() M.jump_to_col(73) end, "COBOL: Jump to Identification (Col 73)")
 
     -- 第 7 列注释切换快捷键
-    map("n", "gcc", function() M.toggle_comment() end, "COBOL: Toggle Col 7 Comment (*)")
+    map("n", "gcc", function()
+      local first = vim.api.nvim_win_get_cursor(0)[1]
+      M.toggle_comment(first, first + vim.v.count1 - 1)
+    end, "COBOL: Toggle Col 7 Comment (*)")
     map("n", "<leader>c*", function() M.toggle_comment() end, "COBOL: Toggle Col 7 Comment (*)")
-    map("x", "<leader>c*", function()
-      local start_line = vim.fn.line("'<")
-      local end_line = vim.fn.line("'>")
+    local toggle_visual_comment = function()
+      -- 可视模式映射执行时，'< 和 '> 可能仍指向上一次选择。
+      local start_line = vim.fn.line("v")
+      local end_line = vim.api.nvim_win_get_cursor(0)[1]
       M.toggle_comment(start_line, end_line)
-    end, "COBOL: Toggle Col 7 Comment on Selection")
+    end
+    map("x", "gc", toggle_visual_comment, "COBOL: Toggle Col 7 Comment on Selection")
+    map("x", "<leader>c*", toggle_visual_comment, "COBOL: Toggle Col 7 Comment on Selection")
 
     -- 智能 Tab（仅当行首或前导空白时生效）
     if M.config.smart_tab then
