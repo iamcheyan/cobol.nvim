@@ -28,6 +28,14 @@ check(string.rep(" ", 11), "column 8 to 12")
 press("A<Tab><Esc>")
 check(string.rep(" ", 15), "column 12 adds shiftwidth")
 
+vim.bo[buf].tabstop = 8
+vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "\t" })
+press("A<Tab><Esc>")
+check("\t" .. string.rep(" ", 3), "tab character counts by display column")
+press("A<S-Tab><Esc>")
+check(string.rep(" ", 7), "Shift-Tab reverses tab-expanded indentation")
+vim.api.nvim_buf_set_lines(buf, 0, -1, false, { string.rep(" ", 15) })
+
 press("A<S-Tab><Esc>")
 check(string.rep(" ", 11), "column 16 to 12")
 press("A<S-Tab><Esc>")
