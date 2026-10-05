@@ -108,6 +108,8 @@ Toggle the guide with `<leader>uc` or `:CobolGuideToggle`. The plugin highlights
 
 At the start of a line, Insert-mode `<Tab>` moves input toward Area A or Area B instead of inserting arbitrary indentation. `<leader>c*` and `:CobolToggleComment` add or remove a fixed-format comment marker in column 7. Visual selections are supported.
 
+In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12; from column 12 onward it inserts a normal `shiftwidth` indent. `<S-Tab>` reverses through these stops without deleting source text. See [the complete fixed-format Tab behavior](docs/FIXED_FORMAT_TAB.md).
+
 ## Navigation and outline
 
 - `gd` / `:CobolGotoDef`: jump to a paragraph, data definition, or copybook.

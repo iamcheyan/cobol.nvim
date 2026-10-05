@@ -594,22 +594,32 @@ function M.toggle_comment(line1, line2)
   vim.api.nvim_buf_set_lines(bufnr, line1 - 1, line2, false, new_lines)
 end
 
--- 智能 Tab 键处理（Insert 模式下快速对齐到 Area A 或 Area B）
+-- nvim_win_get_cursor()[2] is the zero-based byte offset *before* the next
+-- inserted character. The one-based insertion column includes tab expansion.
+local function tab_position()
+  if M.detect_format(0) ~= "fixed" then return nil end
+  local line = vim.api.nvim_get_current_line()
+  local prefix = line:sub(1, vim.api.nvim_win_get_cursor(0)[2])
+  if not prefix:match("^[ \t]*$") then return nil end
+  return vim.fn.strdisplaywidth(prefix) + 1, prefix
+end
+
 function M.smart_tab()
-  local cursor_col = vim.fn.col(".") -- 1-indexed
-  if cursor_col <= 6 then
-    -- 跳到第 8 列（Area A 起始）
-    local spaces = 8 - cursor_col
-    return string.rep(" ", spaces)
-  elseif cursor_col >= 7 and cursor_col <= 11 then
-    -- 跳到第 12 列（Area B 起始）
-    local spaces = 12 - cursor_col
-    return string.rep(" ", spaces)
-  else
-    -- 正常 Tab（空格）
-    local sw = vim.bo.shiftwidth > 0 and vim.bo.shiftwidth or 4
-    return string.rep(" ", sw)
-  end
+  local col = tab_position()
+  if not col then return nil end
+  local target = col < 7 and 7 or col == 7 and 8 or col < 12 and 12 or nil
+  local sw = vim.bo.shiftwidth > 0 and vim.bo.shiftwidth or 4
+  return string.rep(" ", target and target - col or sw)
+end
+
+function M.smart_backtab()
+  local col, prefix = tab_position()
+  if not col then return nil end
+  local sw = vim.bo.shiftwidth > 0 and vim.bo.shiftwidth or 4
+  local target = col > 12 and math.max(12, col - sw)
+    or col > 8 and 8 or col > 7 and 7 or 1
+  -- Rebuild only whitespace before the cursor; suffix/source text is untouched.
+  return string.rep("<BS>", #prefix) .. string.rep(" ", target - 1)
 end
 
 -- 挂载到 COBOL 缓冲区
@@ -697,17 +707,14 @@ function M.attach(bufnr)
     map("x", "gc", toggle_visual_comment, "COBOL: Toggle Col 7 Comment on Selection")
     map("x", "<leader>c*", toggle_visual_comment, "COBOL: Toggle Col 7 Comment on Selection")
 
-    -- 智能 Tab（仅当行首或前导空白时生效）
+    -- Buffer mappings also work when the optional completion plugin is absent.
     if M.config.smart_tab then
       vim.keymap.set("i", "<Tab>", function()
-        local line = vim.api.nvim_get_current_line()
-        local col = vim.fn.col(".") - 1
-        local before = line:sub(1, col)
-        if before:match("^%s*$") then
-          return M.smart_tab()
-        end
-        return "<Tab>"
+        return M.smart_tab() or "<Tab>"
       end, { buffer = bufnr, expr = true, silent = true, desc = "COBOL: Smart Align Tab" })
+      vim.keymap.set("i", "<S-Tab>", function()
+        return M.smart_backtab() or "<C-d>"
+      end, { buffer = bufnr, expr = true, silent = true, desc = "COBOL: Reverse Align Tab" })
     end
   end
 

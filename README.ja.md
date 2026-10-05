@@ -117,6 +117,8 @@ Aerial のコード構造サイドバーを使う場合は、Aerial と COBOL ba
 
 Division、Section、Paragraph、データレコードをネイティブに折りたためます。Insert モードの `<Tab>` は Area A または Area B に合わせて入力位置を移動します。`<leader>c*` と `:CobolToggleComment` は 7 列目のコメントを追加・削除します。
 
+固定形式の Insert モードでは、`<Tab>` で 7、8、12 列へ順に移動し、12 列以降は通常の `shiftwidth` 分のインデントを挿入します。`<S-Tab>` は逆方向に戻り、ソースコードを削除しません。詳細は[固定形式 Tab の説明](docs/FIXED_FORMAT_TAB.md)を参照してください。
+
 ## フォーマットと PIC 計算
 
 `:CobolFormatCase` は現在行、Visual 選択、バッファ全体を対象に、認識した予約語だけを整形します。文字列、コメント、ユーザー定義名は保持されます。

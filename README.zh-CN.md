@@ -119,6 +119,8 @@
 
 在行首或前导空白处，Insert 模式的 `<Tab>` 会自动靠近 Area A 或 Area B。`<leader>c*` 和 `:CobolToggleComment` 会在第 7 列添加或移除固定格式注释符，也支持 Visual 选区。
 
+Fixed-format 中，Insert 模式的 `<Tab>` 依次跳到第 7、8、12 列；从第 12 列起插入普通 `shiftwidth` 缩进。`<S-Tab>` 按相反方向返回，且不删除源代码。完整规则见[固定格式 Tab 说明](docs/FIXED_FORMAT_TAB.md)。
+
 ## 格式化与 PIC 计算器
 
 `:CobolFormatCase` 可以格式化当前行、Visual 选区或整个缓冲区。它只修改识别出的 COBOL 保留字，会保留字符串、注释和用户自定义名称。
