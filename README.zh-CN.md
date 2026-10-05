@@ -97,6 +97,8 @@
 
 使用 `<leader>uc` 或 `:CobolGuideToggle` 切换列标尺。第 72 列之后的文本会被高亮，因为固定格式编译器通常会忽略它。
 
+标尺虚拟文字使用 `hl_mode = "combine"`，保留主题的 `CursorColumn` 和 `CursorLine` 背景；因此第 7、8、12、73 列与光标重合时，整条竖线仍然可见，不覆盖源码字符。
+
 | 快捷键 | 作用 |
 | --- | --- |
 | `g7` / `g8` / `g12` / `g73` | 跳到指示列、Area A、Area B、标识区 |
@@ -117,7 +119,7 @@
 
 `blink.cmp` 只是可选的编辑辅助功能；即使不安装它，标尺、导航、计算器、折叠、格式化和诊断功能仍然可用。
 
-在行首或前导空白处，Insert 模式的 `<Tab>` 会自动靠近 Area A 或 Area B。`<leader>c*` 和 `:CobolToggleComment` 会在第 7 列添加或移除固定格式注释符，也支持 Visual 选区。
+在行首或前导空白处，Insert 模式的 `<Tab>` 会自动靠近 Area A 或 Area B。`<leader>c*` 和 `:CobolToggleComment` 会按源格式切换注释：固定格式在第 7 列添加或移除 `*`，自由格式使用 `*>`，也支持 Visual 选区。
 
 Fixed-format 中，Insert 模式的 `<Tab>` 依次跳到第 7、8、12 列；从第 12 列起插入普通 `shiftwidth` 缩进。`<S-Tab>` 按相反方向返回，且不删除源代码。完整规则见[固定格式 Tab 说明](docs/FIXED_FORMAT_TAB.md)。
 

@@ -109,6 +109,12 @@ function M.detect_format(bufnr)
     if line:match("^%d%d%d%d%d%d[%s*/]") or (#line >= 7 and (line:sub(7, 7) == "*" or line:sub(7, 7) == "/")) then
       return "fixed"
     end
+    -- A full-line *> marker is the free-format equivalent of a fixed-format
+    -- column-7 comment. Recognize it so uncommenting a free-format buffer does
+    -- not fall back to the fixed-format default.
+    if line:match("^%s*%*>" ) then
+      return "free"
+    end
     if line:match("^%s*[%w%-]+%s+DIVISION%s*%.") and not line:match("^%s%s%s%s%s%s%s") then
       return "free"
     end
@@ -123,23 +129,24 @@ function M.setup_highlights()
     vim.api.nvim_set_hl(0, group, opts)
   end
 
+  set("cobolNvimComment", { link = "Comment" })
+
   -- 纯细线标尺配色：无背景色，使用清爽淡钢蓝，与缩进线风格融合
   set("CobolRulerLine", { fg = "#3b638c", bg = "NONE" })
   set("CobolRulerLineInd", { fg = "#4c78a8", bg = "NONE" })
+  -- At the ruler/cursor crossing, use the active line-number accent so the
+  -- vertical cursor guide remains visible over the virtual ruler character.
 
-  -- Winbar 标尺各区域配色
-  set("CobolRulerBase", { fg = "#5c6370", bg = "#181c24" })
-  set("CobolRulerSeq", { fg = "#6b7280", bg = "#181c24" })
-  set("CobolRulerInd", { fg = "#e5c07b", bg = "#222730", bold = true })
-  set("CobolRulerAreaA", { fg = "#61afef", bg = "#1f2735", bold = true })
-  set("CobolRulerAreaB", { fg = "#98c379", bg = "#181c24" })
-  set("CobolRulerIdent", { fg = "#e06c75", bg = "#251d22" })
-
-  -- Winbar / Statusline 动态面包屑配色
-  set("CobolBreadcrumbProc", { fg = "#61afef", bg = "NONE", bold = true })
-  set("CobolBreadcrumbData", { fg = "#98c379", bg = "NONE", bold = true })
-  set("CobolBreadcrumbEnv", { fg = "#e5c07b", bg = "NONE", bold = true })
-  set("CobolBreadcrumbId", { fg = "#c678dd", bg = "NONE", bold = true })
+  -- The ruler occupies the theme-provided WinBar surface. Do not paint
+  -- per-column backgrounds: those hard-coded blocks looked like corruption
+  -- whenever the active colorscheme used a different bar palette.
+  for _, group in ipairs({
+    "CobolRulerBase", "CobolRulerSeq", "CobolRulerInd", "CobolRulerAreaA",
+    "CobolRulerAreaB", "CobolRulerIdent", "CobolBreadcrumbProc",
+    "CobolBreadcrumbData", "CobolBreadcrumbEnv", "CobolBreadcrumbId",
+  }) do
+    set(group, { link = "WinBar" })
+  end
 
   -- Statusline context components, using the same semantic colors as the
   -- ruler, breadcrumbs, and data-layout virtual text above.
@@ -184,6 +191,16 @@ local function setup_folding(bufnr)
   vim.wo[win].foldmethod = "expr"
   vim.wo[win].foldexpr = "v:lua.require('cobol.folding').foldexpr(v:lnum)"
   vim.wo[win].foldenable = true
+end
+
+local function setup_comment_syntax(bufnr)
+  -- Vim's built-in COBOL syntax does not enable free-format *> comments by
+  -- default. Add explicit whole-line rules for both comment conventions so
+  -- they remain comments even when the default COBOL syntax is in use.
+  pcall(vim.api.nvim_buf_call, bufnr, function()
+    vim.cmd([[syntax match cobolNvimComment /^.\{6}[*\/].*$/]])
+    vim.cmd([[syntax match cobolNvimComment /^\s*\*>.*$/]])
+  end)
 end
 
 -- 解析当前行在 COBOL 架构中的面包屑路径
@@ -333,38 +350,20 @@ function M.get_winbar()
     textoff = wininfo[1].textoff or 0
   end
 
-  -- 左侧补充与行号/符号列等宽的空格，确保刻度与代码列 100% 垂直对应
-  local pad = string.rep(" ", textoff)
-
-  -- 80 列穿孔卡标尺结构：
-  -- 1-6  : SEQ (6 chars)
-  -- 7    : IND (1 char: *)
-  -- 8-11 : AREA A (4 chars: A...)
-  -- 12-72: AREA B (61 chars: B .. 58 dots .. 72)
-  -- 73-80: IDENT (8 chars: IDENT...)
-  local ruler_parts = {
-    "%#CobolRulerBase#" .. pad,
-    "%#CobolRulerSeq#..SEQ.",
-    "%#CobolRulerInd#*",
-    "%#CobolRulerAreaA#A...",
-    "%#CobolRulerAreaB#B",
-    string.rep(".", 58),
-    "72",
-    "%#CobolRulerIdent#IDENT...",
-  }
-
-  -- 如果开启了面包屑，在标尺右侧追加实时结构路径
+  -- Show only the current COBOL structure. The old fixed-column ruler filled
+  -- the rest of the winbar with dots, which looked like stray/corrupt text.
+  local crumb = ""
+  local hl_group = "CobolBreadcrumbProc"
   if M.config.show_breadcrumbs then
-    local bufnr = vim.api.nvim_win_get_buf(win_id)
     local cursor_row = vim.api.nvim_win_get_cursor(win_id)[1]
-    local crumb, hl_group = M.get_breadcrumb(bufnr, cursor_row)
-    if crumb and crumb ~= "" then
-      table.insert(ruler_parts, "  %#" .. hl_group .. "# [ " .. crumb .. " ]")
-    end
+    crumb, hl_group = M.get_breadcrumb(bufnr, cursor_row)
+  end
+  if not crumb or crumb == "" then
+    return ""
   end
 
-  table.insert(ruler_parts, "%#Normal#")
-  return table.concat(ruler_parts)
+  local pad = string.rep(" ", textoff)
+  return pad .. "%#" .. hl_group .. "#[ " .. crumb .. " ]%*"
 end
 
 -- 更新 DATA DIVISION 当前光标行的宿主回溯虚拟提示 (← 05 PARENT)
@@ -488,7 +487,7 @@ local function setup_matches(win_id)
 
   -- 1. 72 列越界检测
   if M.config.highlight_overflow then
-    local pattern_overflow = [[^.\{6}[^*/].\{-}\%>72v\S\+]]
+    local pattern_overflow = [[^\%([^\n]\{6}[*\/]\|[ \t]*\*>\)\@!.\{6}[^*/].\{-}\%>72v\S\+]]
     local ok, id = pcall(vim.fn.matchadd, "CobolColumnOverflow", pattern_overflow, 15, -1, { window = win_id })
     if ok and id then
       vim.w[win_id].cobol_overflow_match = id
@@ -497,20 +496,22 @@ local function setup_matches(win_id)
 
   -- 2. Level 88 与 01 级结构高亮
   if M.config.highlight_levels then
+    local code_prefix = [[^\%([^\n]\{6}[*\/]\|[ \t]*\*>\)\@!.*\zs]]
+
     -- 88 级标志（优先于常规代码行）
-    local ok1, id1 = pcall(vim.fn.matchadd, "CobolLevel88", [[\<88\>]], 22, -1, { window = win_id })
+    local ok1, id1 = pcall(vim.fn.matchadd, "CobolLevel88", code_prefix .. [[\<88\>]], 22, -1, { window = win_id })
     if ok1 and id1 then
       vim.w[win_id].cobol_lvl88_match = id1
     end
 
     -- 88 级条件名 (例如 88 EOF-YES)
-    local ok2, id2 = pcall(vim.fn.matchadd, "CobolConditionName", [[\%(\<88\>\s\+\)\@<=[A-Za-z0-9\-]\+]], 22, -1, { window = win_id })
+    local ok2, id2 = pcall(vim.fn.matchadd, "CobolConditionName", code_prefix .. [[\%(\<88\>\s\+\)\@<=[A-Za-z0-9\-]\+]], 22, -1, { window = win_id })
     if ok2 and id2 then
       vim.w[win_id].cobol_cond_match = id2
     end
 
     -- 01 顶级记录号
-    local ok3, id3 = pcall(vim.fn.matchadd, "CobolLevel01", [[\<01\>\ze\s\+[A-Za-z0-9\-]\+]], 22, -1, { window = win_id })
+    local ok3, id3 = pcall(vim.fn.matchadd, "CobolLevel01", code_prefix .. [[\<01\>\ze\s\+[A-Za-z0-9\-]\+]], 22, -1, { window = win_id })
     if ok3 and id3 then
       vim.w[win_id].cobol_lvl01_match = id3
     end
@@ -541,6 +542,7 @@ function M.toggle_comment(line1, line2)
   line2 = line2 or line1
   if line1 > line2 then line1, line2 = line2, line1 end
   local bufnr = vim.api.nvim_get_current_buf()
+  local source_format = M.detect_format(bufnr)
 
   local lines = vim.api.nvim_buf_get_lines(bufnr, line1 - 1, line2, false)
   local new_lines = {}
@@ -551,7 +553,12 @@ function M.toggle_comment(line1, line2)
   for _, line in ipairs(lines) do
     if not line:match("^%s*$") then
       has_source_line = true
-      if #line >= 7 then
+      if source_format == "free" then
+        if not line:match("^%s*%*>") then
+          all_commented = false
+          break
+        end
+      elseif #line >= 7 then
         local ind = line:sub(7, 7)
         if ind ~= "*" and ind ~= "/" then
           all_commented = false
@@ -570,11 +577,20 @@ function M.toggle_comment(line1, line2)
       table.insert(new_lines, line)
     else
       local new_line = line
-      if #new_line < 6 then
+      if source_format ~= "free" and #new_line < 6 then
         new_line = new_line .. string.rep(" ", 6 - #new_line)
       end
 
-      if all_commented then
+      if source_format == "free" then
+        local indent = new_line:match("^(%s*)") or ""
+        local body = new_line:sub(#indent + 1)
+        if all_commented then
+          body = body:gsub("^%*>%s?", "", 1)
+          new_line = indent .. body
+        elseif not body:match("^%*>") then
+          new_line = indent .. "*> " .. body
+        end
+      elseif all_commented then
         -- 取消注释：第 7 列设为空格
         if #new_line >= 7 then
           new_line = new_line:sub(1, 6) .. " " .. new_line:sub(8)
@@ -629,6 +645,7 @@ function M.attach(bufnr)
     return
   end
 
+  setup_comment_syntax(bufnr)
   setup_folding(bufnr)
 
   -- 设置贯穿标尺：默认关闭 colorcolumn 背景色块；仅当显式要求时才开启
@@ -852,6 +869,8 @@ local function setup_line_ruler()
           vim.api.nvim_buf_set_extmark(buf, M.ns_ruler, row, 0, {
             virt_text = { { char, hl } },
             virt_text_win_col = col - 1,
+            -- Preserve CursorColumn/CursorLine beneath every guide cell.
+            hl_mode = "combine",
             ephemeral = true,
           })
         end
@@ -887,7 +906,7 @@ function M.setup(opts)
 
   vim.api.nvim_create_user_command("CobolToggleComment", function(args)
     M.toggle_comment(args.line1, args.line2)
-  end, { range = true, desc = "Toggle column 7 comment (*)" })
+  end, { range = true, desc = "Toggle COBOL comment for source format" })
 
   vim.api.nvim_create_user_command("CobolGotoDef", function()
     require("cobol.navigation").goto_definition()

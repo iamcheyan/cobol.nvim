@@ -33,14 +33,36 @@ assert(duplicate and duplicate.lnum == 6, "same-name definitions should prefer t
 local free_buf = vim.api.nvim_create_buf(false, true)
 vim.api.nvim_buf_set_lines(free_buf, 0, -1, false, { "IDENTIFICATION DIVISION." })
 assert(cobol.detect_format(free_buf) == "free", "free-format source should be detected")
+vim.api.nvim_set_current_buf(free_buf)
+cobol.toggle_comment(1, 1)
+assert(vim.api.nvim_buf_get_lines(free_buf, 0, 1, false)[1] == "*> IDENTIFICATION DIVISION.", "free-format comments should use *>")
+assert(cobol.detect_format(free_buf) == "free", "a commented free-format buffer should remain detectable")
+cobol.toggle_comment(1, 1)
+assert(vim.api.nvim_buf_get_lines(free_buf, 0, 1, false)[1] == "IDENTIFICATION DIVISION.", "free-format comments should toggle off cleanly")
 
 local cobol_buf = vim.api.nvim_create_buf(false, true)
-vim.api.nvim_buf_set_lines(cobol_buf, 0, -1, false, { "       DISPLAY 'TEST'." })
+vim.api.nvim_buf_set_lines(cobol_buf, 0, -1, false, {
+  "       DISPLAY 'TEST'.",
+  "       01 WS-OUT-TOTAL",
+  "      *01 WS-RETURN-CODE",
+  "       88 EOF-YES",
+  "      *88 EOF-NO",
+})
 vim.bo[cobol_buf].filetype = "cobol"
 vim.api.nvim_set_current_buf(cobol_buf)
 cobol.attach(cobol_buf)
 local gcc_map = vim.fn.maparg("gcc", "n", false, true)
 assert(gcc_map.buffer == 1, "COBOL gcc mapping should be buffer-local")
 assert(gcc_map.desc == "COBOL: Toggle Col 7 Comment (*)", "COBOL gcc should use fixed-format comments")
+local match_patterns = {}
+for _, match in ipairs(vim.fn.getmatches()) do
+  if match.group == "CobolLevel01" or match.group == "CobolLevel88" then
+    match_patterns[match.group] = match.pattern
+  end
+end
+assert(vim.fn.matchstr("       01 WS-OUT-TOTAL", match_patterns.CobolLevel01) == "01", "01 levels should stay highlighted in code")
+assert(vim.fn.matchstr("      *01 WS-RETURN-CODE", match_patterns.CobolLevel01) == "", "commented 01 levels should not override comment color")
+assert(vim.fn.matchstr("       88 EOF-YES", match_patterns.CobolLevel88) == "88", "88 levels should stay highlighted in code")
+assert(vim.fn.matchstr("      *88 EOF-NO", match_patterns.CobolLevel88) == "", "commented 88 levels should not override comment color")
 
 print("config_spec: OK")

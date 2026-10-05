@@ -115,7 +115,7 @@ Aerial のコード構造サイドバーを使う場合は、Aerial と COBOL ba
 
 `blink.cmp` は任意の編集補助機能です。インストールしなくても、列ガイド、移動、計算、折りたたみ、整形、診断は利用できます。
 
-Division、Section、Paragraph、データレコードをネイティブに折りたためます。Insert モードの `<Tab>` は Area A または Area B に合わせて入力位置を移動します。`<leader>c*` と `:CobolToggleComment` は 7 列目のコメントを追加・削除します。
+Division、Section、Paragraph、データレコードをネイティブに折りたためます。Insert モードの `<Tab>` は Area A または Area B に合わせて入力位置を移動します。`<leader>c*` と `:CobolToggleComment` は検出した形式に応じてコメントを切り替えます。固定形式では 7 列目に `*`、自由形式では `*>` を使います。
 
 固定形式の Insert モードでは、`<Tab>` で 7、8、12 列へ順に移動し、12 列以降は通常の `shiftwidth` 分のインデントを挿入します。`<S-Tab>` は逆方向に戻り、ソースコードを削除しません。詳細は[固定形式 Tab の説明](docs/FIXED_FORMAT_TAB.md)を参照してください。
 
