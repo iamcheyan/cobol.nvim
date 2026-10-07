@@ -15,6 +15,39 @@ local found = navigation.find_copybook("SHARED.CPY", root .. "/src/main.cbl")
 assert(found == root .. "/SHARED.CPY", "navigation should resolve copybooks from project_root")
 assert(navigation.get_copybook_name_on_line("       COPY SHARED REPLACING ==A== BY ==B==.") == "SHARED")
 
+local src_dir = root .. "/src"
+vim.fn.mkdir(src_dir, "p")
+cobol.setup({ project_root = root .. "/stale-project-root" })
+local resolved_root = cobol.get_project_root(0, src_dir .. "/main.cbl")
+assert(resolved_root == src_dir, "a stale project_root should fall back to the existing COBOL file directory")
+cobol.setup({ project_root = root, copybook_paths = { "." }, diagnostics = { enable = false } })
+
+local lint_buf = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_buf_set_name(lint_buf, src_dir .. "/main.cbl")
+vim.api.nvim_buf_set_lines(lint_buf, 0, -1, false, { "       DISPLAY 'TEST'." })
+local diagnostics = require("cobol.diagnostics")
+local original_executable, original_system = vim.fn.executable, vim.system
+local captured_cwd
+vim.fn.executable = function() return 1 end
+vim.system = function(_, options)
+  captured_cwd = options.cwd
+  return { kill = function() end }
+end
+cobol.setup({ project_root = root .. "/stale-project-root", diagnostics = { enable = true } })
+local lint_ok, lint_result = pcall(diagnostics.lint, lint_buf)
+vim.fn.executable, vim.system = original_executable, original_system
+assert(lint_ok and lint_result == true, "diagnostics should spawn after falling back from a stale project_root")
+assert(captured_cwd == src_dir, "diagnostics cwd should fall back to the existing COBOL file directory")
+diagnostics.clear(lint_buf)
+
+vim.fn.executable = function() return 1 end
+vim.system = function() error("simulated spawn failure") end
+local spawn_ok, spawn_result, spawn_reason = pcall(diagnostics.lint, lint_buf)
+vim.fn.executable, vim.system = original_executable, original_system
+assert(spawn_ok, "a synchronous vim.system spawn failure should not escape diagnostics.lint")
+assert(spawn_result == false and spawn_reason == "spawn_failed", "spawn failure should return a stable error result")
+cobol.setup({ project_root = root, copybook_paths = { "." }, diagnostics = { enable = false } })
+
 local duplicate_buf = vim.api.nvim_create_buf(false, true)
 vim.api.nvim_buf_set_lines(duplicate_buf, 0, -1, false, {
   "       PROCEDURE DIVISION.",

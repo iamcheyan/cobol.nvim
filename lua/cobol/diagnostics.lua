@@ -309,8 +309,22 @@ function M.lint(bufnr, opts)
 
   local text = table.concat(lines, "\n") .. "\n"
   local bufname = vim.api.nvim_buf_get_name(bufnr)
-  local base_dir = (ok_c and cobol.get_project_root and cobol.get_project_root(bufnr, bufname))
-    or ((bufname ~= "" and vim.fs.dirname(bufname)) or vim.fn.getcwd())
+  local base_dir = ok_c and cobol.get_project_root and cobol.get_project_root(bufnr, bufname)
+  if type(base_dir) ~= "string" or vim.fn.isdirectory(base_dir) ~= 1 then
+    local file_dir = bufname ~= "" and vim.fs.dirname(vim.fs.normalize(bufname)) or nil
+    if file_dir and vim.fn.isdirectory(file_dir) == 1 then
+      base_dir = file_dir
+    else
+      local cwd = vim.fn.getcwd()
+      base_dir = vim.fn.isdirectory(cwd) == 1 and cwd or nil
+    end
+  end
+  if not base_dir then
+    if opts.interactive then
+      vim.notify("COBOL: no existing working directory is available for syntax checking.", vim.log.levels.ERROR)
+    end
+    return false, "invalid_working_directory"
+  end
 
   -- 构建 cobc 参数
   local args = {
@@ -365,33 +379,38 @@ function M.lint(bufnr, opts)
   -- 通过 STDIN 传递当前未保存的缓冲区内容
   table.insert(args, "-")
 
-  -- 异步调用 GnuCOBOL
-  M.running_jobs[bufnr] = vim.system(
-    vim.list_extend({ compiler }, args),
-    {
-      stdin = text,
-      cwd = base_dir,
-      text = true,
-    },
-    function(res)
-      if M.generations[bufnr] ~= generation then
+  -- 异步调用 GnuCOBOL。目录可能在检查后被删除，防止同步 spawn 异常逃逸到定时回调。
+  local command = vim.list_extend({ compiler }, args)
+  local spawn_ok, job = pcall(vim.system, command, {
+    stdin = text,
+    cwd = base_dir,
+    text = true,
+  }, function(res)
+    if M.generations[bufnr] ~= generation then
+      return
+    end
+    M.running_jobs[bufnr] = nil
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(bufnr) or M.generations[bufnr] ~= generation then
         return
       end
-      M.running_jobs[bufnr] = nil
-      vim.schedule(function()
-        if not vim.api.nvim_buf_is_valid(bufnr) or M.generations[bufnr] ~= generation then
-          return
-        end
-        local process_opts = vim.tbl_extend("force", opts, {
-          generation = generation,
-          current_generation = function()
-            return M.generations[bufnr]
-          end,
-        })
-        M.process_output(bufnr, res, lines, base_dir, process_opts)
-      end)
+      local process_opts = vim.tbl_extend("force", opts, {
+        generation = generation,
+        current_generation = function()
+          return M.generations[bufnr]
+        end,
+      })
+      M.process_output(bufnr, res, lines, base_dir, process_opts)
+    end)
+  end)
+  if not spawn_ok then
+    M.running_jobs[bufnr] = nil
+    if opts.interactive then
+      vim.notify("COBOL: failed to start the syntax checker.", vim.log.levels.ERROR)
     end
-  )
+    return false, "spawn_failed"
+  end
+  M.running_jobs[bufnr] = job
   return true
 end
 

@@ -80,14 +80,25 @@ function M.get_project_root(bufnr, current_file)
     if not vim.startswith(configured, "/") then
       configured = vim.fn.getcwd() .. "/" .. configured
     end
-    return vim.fs.normalize(configured)
+    configured = vim.fs.normalize(configured)
+    if vim.fn.isdirectory(configured) == 1 then
+      return configured
+    end
   end
 
   current_file = current_file or vim.api.nvim_buf_get_name(bufnr or vim.api.nvim_get_current_buf())
   if current_file and current_file ~= "" then
-    return vim.fs.dirname(vim.fs.normalize(current_file))
+    local file_dir = vim.fs.dirname(vim.fs.normalize(current_file))
+    if file_dir and vim.fn.isdirectory(file_dir) == 1 then
+      return file_dir
+    end
   end
-  return vim.fn.getcwd()
+
+  local cwd = vim.fs.normalize(vim.fn.getcwd())
+  if vim.fn.isdirectory(cwd) == 1 then
+    return cwd
+  end
+  return nil
 end
 
 function M.get_copybook_paths()
