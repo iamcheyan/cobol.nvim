@@ -12,6 +12,7 @@ CONTENTS                                                            *cobol.nvim*
   Completion                    |cobol-completion|
   Context component              |cobol-statusline|
   Commands                      |cobol-commands|
+  GnuCOBOL projects              |cobol-projects|
   Configuration                 |cobol-configuration|
 
 ===============================================================================
@@ -56,6 +57,45 @@ COMMANDS                                                            *cobol-comma
 :CobolPreview           Preview a Copybook or definition.
 :CobolDiagnosticsToggle Toggle compiler diagnostics.
 :CobolGuideToggle       Toggle the fixed-format guide.
+:CobolBuild             Build the current source or project asynchronously.
+:CobolRun               Build and run a single source or call the project command.
+:CobolTest              Run project tests or a compiler syntax check.
+
+Build output and compiler diagnostics are placed in the quickfix list. Use
+:cnext and :cprev to move between reported locations. Project build commands
+read saved files; save the current buffer first.
+
+===============================================================================
+GNUCOBOL PROJECTS                                                   *cobol-projects*
+
+Create .cobol.json in the project root to share source format, dialect,
+compiler, Copybook directories, and extra compiler arguments:
+
+    {
+      "source_format": "fixed",
+      "dialect": "default",
+      "compiler": "cobc",
+      "copybook_paths": ["copy", "cpy"],
+      "warnings": ["all", "no-obsolete"],
+      "compiler_args": ["-Wall"]
+    }
+
+Paths are relative to the detected root. The profile is used by both compiler
+diagnostics, completion, Copybook lookup, and builds. If a Makefile has build/all, run, or test/check
+targets, the matching commands use those targets. The commands object can
+override them with argument arrays, for example:
+
+    "commands": {
+      "build": ["make", "build"],
+      "run": ["make", "run"],
+      "test": ["make", "test"]
+    }
+
+Single-source projects without a Makefile use cobc to build, run, or check.
+For multi-source projects, define Makefile targets or explicit commands so
+that linking follows the project build rules.
+If the Makefile provides build rules but no run target, add commands.run or a
+Makefile run target; the plugin will not guess which executable to launch.
 
 ===============================================================================
 CONFIGURATION                                                       *cobol-configuration*

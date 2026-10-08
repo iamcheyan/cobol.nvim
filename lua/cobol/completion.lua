@@ -15,7 +15,6 @@ local keyword_groups = {
   { "CONTINUE", "Procedure" },
   { "COPY", "Source" },
   { "DELETE", "File I/O" },
-  { "DISPLAY", "Output" },
   { "DIVIDE", "Arithmetic" },
   { "ELSE", "Conditional" },
   { "END-ACCEPT", "Scope terminator" },
@@ -158,7 +157,6 @@ local keyword_groups = {
   { "INDEXED", "Table clause" },
   { "INDEX", "Table clause" },
   { "KEY", "Table clause" },
-  { "ASCENDING", "Table clause" },
   { "DESCENDING", "Table clause" },
   { "TIMES", "Table clause" },
   { "DEPENDING", "Table clause" },
@@ -172,7 +170,6 @@ local keyword_groups = {
   { "TALLYING", "String clause" },
   { "COUNT", "String clause" },
   { "POINTER", "String clause" },
-  { "UNSTRING", "String" },
   { "FUNCTION", "Intrinsic function" },
   { "LENGTH", "Intrinsic function" },
   { "TRIM", "Intrinsic function" },
@@ -229,7 +226,7 @@ local snippet_items = {
     kind = "Snippet",
     detail = "File write statement",
     documentation = "WRITE record FROM data",
-    insertText = "WRITE ${1:record} FROM ${0:data}",
+    insertText = "WRITE ${1:record} FROM ${2:data}${0}",
     sortText = "0-WRITE",
   },
   {
@@ -237,7 +234,7 @@ local snippet_items = {
     kind = "Snippet",
     detail = "Data movement",
     documentation = "MOVE source TO target",
-    insertText = "MOVE ${1:source} TO ${0:target}",
+    insertText = "MOVE ${1:source} TO ${2:target}${0}",
     sortText = "0-MOVE",
   },
   {
@@ -245,7 +242,7 @@ local snippet_items = {
     kind = "Snippet",
     detail = "Display statement",
     documentation = "DISPLAY value",
-    insertText = "DISPLAY ${0:value}",
+    insertText = "DISPLAY ${1:value}${0}",
     sortText = "0-DISPLAY",
   },
   {
@@ -253,7 +250,7 @@ local snippet_items = {
     kind = "Snippet",
     detail = "Alphanumeric field",
     documentation = "PIC X(n) stores fixed-length text",
-    insertText = "PIC X(${0:length})",
+    insertText = "PIC X(${1:length})${0}",
     sortText = "0-PIC-X",
   },
   {
@@ -261,7 +258,7 @@ local snippet_items = {
     kind = "Snippet",
     detail = "Numeric display field",
     documentation = "PIC 9(n) stores display-format digits",
-    insertText = "PIC 9(${0:length})",
+    insertText = "PIC 9(${1:length})${0}",
     sortText = "0-PIC-9",
   },
   {
@@ -285,7 +282,7 @@ local snippet_items = {
     kind = "Snippet",
     detail = "Shared storage declaration",
     documentation = "Overlay an existing data item",
-    insertText = "REDEFINES ${0:field}",
+    insertText = "REDEFINES ${1:field}${0}",
     sortText = "0-REDEFINES",
   },
   {
@@ -293,7 +290,7 @@ local snippet_items = {
     kind = "Snippet",
     detail = "Copybook inclusion",
     documentation = "Insert a copybook during compilation",
-    insertText = "COPY \"${0:copybook}.CPY\".",
+    insertText = "COPY \"${1:copybook}.CPY\".${0}",
     sortText = "0-COPY",
   },
 }

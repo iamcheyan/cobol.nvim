@@ -7,10 +7,12 @@ M.ns = vim.api.nvim_create_namespace("cobol_nvim_diagnostics")
 M.running_jobs = {}
 M.timers = {}
 M.generations = {}
+M.related_buffers = {}
 
 local severity_map = {
   error = vim.diagnostic.severity.ERROR,
   fatal = vim.diagnostic.severity.ERROR,
+  ["fatal error"] = vim.diagnostic.severity.ERROR,
   warning = vim.diagnostic.severity.WARN,
   note = vim.diagnostic.severity.INFO,
   info = vim.diagnostic.severity.INFO,
@@ -27,21 +29,62 @@ function M.is_enabled(bufnr)
   return not ok or enabled
 end
 
--- 查找已打开的 Copybook 缓冲区
-local function find_buf_by_file(file, base_dir)
-  local candidate = file
-  if not vim.startswith(candidate, "/") and base_dir then
-    candidate = base_dir .. "/" .. candidate
+local function absolute_path(path)
+  return vim.fs.normalize(vim.fn.fnamemodify(path, ":p"))
+end
+
+local function candidate_paths(file, base_dir, search_dirs)
+  if vim.startswith(file, "/") or file:match("^%a:[/\\]") then
+    return { absolute_path(file) }
   end
-  local norm_file = vim.fs.normalize(candidate)
-  local base_name = vim.fs.basename(file)
+  local candidates, seen = {}, {}
+  local function add(path)
+    path = absolute_path(path)
+    if not seen[path] then
+      seen[path] = true
+      candidates[#candidates + 1] = path
+    end
+  end
+  if base_dir then add(vim.fs.joinpath(base_dir, file)) end
+  for _, directory in ipairs(search_dirs or {}) do
+    add(vim.fs.joinpath(directory, file))
+    local basename = vim.fs.basename(file)
+    if vim.fn.isdirectory(directory) == 1 then
+      for entry in vim.fs.dir(directory) do
+        if entry:lower() == basename:lower() then add(vim.fs.joinpath(directory, entry)) end
+      end
+    end
+  end
+  return candidates
+end
+
+local function resolve_output_file(file, base_dir, search_dirs)
+  local candidates = candidate_paths(file, base_dir, search_dirs)
+  for _, candidate in ipairs(candidates) do
+    if vim.fn.filereadable(candidate) == 1 then return candidate end
+  end
+  for _, candidate in ipairs(candidates) do
+    for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+      if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_name(buf) ~= ""
+        and absolute_path(vim.api.nvim_buf_get_name(buf)) == candidate then
+        return candidate
+      end
+    end
+  end
+  return candidates[1] or file
+end
+
+-- Match only the resolved path. Basename-only matching can send diagnostics
+-- into an unrelated Copybook when projects contain duplicate file names.
+local function find_buf_by_file(file, base_dir, search_dirs)
+  local candidates = candidate_paths(file, base_dir, search_dirs)
   for _, buf in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_is_loaded(buf) then
       local name = vim.api.nvim_buf_get_name(buf)
       if name ~= "" then
-        local norm_name = vim.fs.normalize(name)
-        if norm_name == norm_file or vim.fs.basename(norm_name) == base_name then
-          return buf
+        local norm_name = absolute_path(name)
+        for _, candidate in ipairs(candidates) do
+          if norm_name == candidate then return buf end
         end
       end
     end
@@ -58,7 +101,7 @@ function M.parse_line(line)
   end
 
   -- 2. file:line:col: severity: message
-  local f1, l1, c1, sev1, msg1 = line:match("^([^:]+):(%d+):(%d+):%s*(%a+):%s*(.*)$")
+  local f1, l1, c1, sev1, msg1 = line:match("^(.*):(%d+):(%d+):%s*([%a ]+):%s*(.*)$")
   if f1 and l1 and c1 and sev1 and msg1 then
     return {
       file = vim.trim(f1),
@@ -70,7 +113,7 @@ function M.parse_line(line)
   end
 
   -- 3. file:line: severity: message
-  local f2, l2, sev2, msg2 = line:match("^([^:]+):(%d+):%s*(%a+):%s*(.*)$")
+  local f2, l2, sev2, msg2 = line:match("^(.*):(%d+):%s*([%a ]+):%s*(.*)$")
   if f2 and l2 and sev2 and msg2 then
     return {
       file = vim.trim(f2),
@@ -82,7 +125,7 @@ function M.parse_line(line)
   end
 
   -- 4. file: severity: message (无行号)
-  local f3, sev3, msg3 = line:match("^([^:]+):%s*(%a+):%s*(.*)$")
+  local f3, sev3, msg3 = line:match("^(.*):%s*([%a ]+):%s*(.*)$")
   if f3 and sev3 and msg3 then
     local s = vim.trim(sev3):lower()
     if severity_map[s] then
@@ -108,7 +151,7 @@ local function calculate_col_range(line_content, col, msg)
 
   -- 如果 cobc 给出了列号
   if col and col > 0 then
-    local start_c = math.max(0, col - 1)
+    local start_c = math.max(0, math.min(col - 1, len - 1))
     -- 如果有带引号的具体标识符，尝试精确定位该标识符
     local token = msg:match("'([^']+)'")
     if token and #token > 0 then
@@ -117,7 +160,7 @@ local function calculate_col_range(line_content, col, msg)
         return s - 1, e
       end
     end
-    return start_c, len
+    return start_c, math.max(start_c + 1, len)
   end
 
   -- 未给出列号时，优先在行内搜索消息中被引用的标识符 (如 'UNKNOWN-PARAGRAPH')
@@ -135,19 +178,19 @@ local function calculate_col_range(line_content, col, msg)
 end
 
 -- 在主缓冲区中查找 COPY 语句所在的行号
-local function find_copy_line(lines, copybook_file)
-  local base_name = vim.fs.basename(copybook_file)
-  -- 去掉扩展名，如 EMP-REC.CPY -> EMP-REC
-  local name_no_ext = base_name:gsub("%.%w+$", "")
-
+local function find_copy_line(lines, copybook_file, source_file, search_paths)
+  local target = absolute_path(copybook_file)
+  local nav_ok, navigation = pcall(require, "cobol.navigation")
   for idx, line in ipairs(lines) do
-    if line:find("COPY", 1, true) then
-      if line:find(base_name, 1, true) or line:find(name_no_ext, 1, true) then
-        return idx
+    local copy_name = nav_ok and navigation.get_copybook_name_on_line(line)
+    if copy_name then
+      local candidates = navigation.find_copybooks(copy_name, source_file, search_paths)
+      for _, candidate in ipairs(candidates) do
+        if absolute_path(candidate) == target then return idx end
       end
     end
   end
-  return 1
+  return nil
 end
 
 -- 解析并分发诊断信息到对应缓冲区
@@ -157,8 +200,18 @@ function M.process_output(bufnr, res, lines, base_dir, opts)
     return
   end
   local diags_by_buf = { [bufnr] = {} }
+  for related in pairs(M.related_buffers[bufnr] or {}) do
+    if related ~= bufnr and vim.api.nvim_buf_is_valid(related) then
+      diags_by_buf[related] = {}
+    end
+  end
   local total_errors = 0
   local total_warnings = 0
+  local ok_cobol, cobol = pcall(require, "cobol")
+  local project = require("cobol.project")
+  local settings = project.settings(base_dir, ok_cobol and cobol.config or {})
+  local search_dirs = settings.copybook_dirs or { base_dir }
+  local source_file = vim.api.nvim_buf_get_name(bufnr)
 
   if res.stderr and #res.stderr > 0 then
     local raw_lines = vim.split(res.stderr, "\n", { trimempty = true })
@@ -189,7 +242,8 @@ function M.process_output(bufnr, res, lines, base_dir, opts)
           })
         else
           -- 来自外部 Copybook 文件
-          local cpy_buf = find_buf_by_file(item.file, base_dir)
+          local resolved_file = resolve_output_file(item.file, base_dir, search_dirs)
+          local cpy_buf = find_buf_by_file(resolved_file, base_dir, search_dirs)
           if cpy_buf then
             if not diags_by_buf[cpy_buf] then
               diags_by_buf[cpy_buf] = {}
@@ -211,26 +265,31 @@ function M.process_output(bufnr, res, lines, base_dir, opts)
           end
 
           -- 同时在主程序引用该 Copybook 的行上标注诊断
-          local copy_line = find_copy_line(lines, item.file)
-          local copy_lnum = copy_line - 1
-          local copy_str = lines[copy_line] or ""
-          local start_col, end_col = calculate_col_range(copy_str, nil, "")
-
-          table.insert(diags_by_buf[bufnr], {
-            bufnr = bufnr,
-            lnum = copy_lnum,
-            col = start_col,
-            end_col = end_col,
-            severity = sev,
-            message = string.format("[In %s:%d] %s", vim.fs.basename(item.file), item.lnum, item.message),
-            source = "cobc",
-          })
+          local copy_line = find_copy_line(lines, resolved_file, source_file, settings.copybook_dirs)
+          if copy_line then
+            local copy_lnum = copy_line - 1
+            local copy_str = lines[copy_line] or ""
+            local start_col, end_col = calculate_col_range(copy_str, nil, "")
+            table.insert(diags_by_buf[bufnr], {
+              bufnr = bufnr,
+              lnum = copy_lnum,
+              col = start_col,
+              end_col = end_col,
+              severity = sev,
+              message = string.format("[In %s:%d] %s", vim.fs.basename(resolved_file), item.lnum, item.message),
+              source = "cobc",
+            })
+          end
         end
       end
     end
   end
 
   -- 应用诊断结果
+  M.related_buffers[bufnr] = {}
+  for related in pairs(diags_by_buf) do
+    if related ~= bufnr then M.related_buffers[bufnr][related] = true end
+  end
   for b, diags in pairs(diags_by_buf) do
     if vim.api.nvim_buf_is_valid(b) then
       if not M.is_enabled(b) then
@@ -270,8 +329,17 @@ function M.lint(bufnr, opts)
 
   local ok_c, cobol = pcall(require, "cobol")
   local plugin_cfg = (ok_c and cobol.config) or {}
+  local project = require("cobol.project")
+  local bufname = vim.api.nvim_buf_get_name(bufnr)
+  local base_dir = project.find_root(bufname)
+    or (ok_c and cobol.get_project_root and cobol.get_project_root(bufnr, bufname))
+  if type(base_dir) ~= "string" or vim.fn.isdirectory(base_dir) ~= 1 then
+    base_dir = vim.fn.getcwd()
+  end
+  local settings, profile_error = project.settings(base_dir, plugin_cfg)
+  if profile_error then vim.notify_once("COBOL: " .. profile_error, vim.log.levels.WARN) end
   local diag_cfg = plugin_cfg.diagnostics or {}
-  local compiler = diag_cfg.command or plugin_cfg.cobc_command or "cobc"
+  local compiler = settings.compiler
 
   -- 检查 GnuCOBOL 编译器是否存在
   if vim.fn.executable(compiler) ~= 1 then
@@ -308,16 +376,8 @@ function M.lint(bufnr, opts)
   end
 
   local text = table.concat(lines, "\n") .. "\n"
-  local bufname = vim.api.nvim_buf_get_name(bufnr)
-  local base_dir = ok_c and cobol.get_project_root and cobol.get_project_root(bufnr, bufname)
-  if type(base_dir) ~= "string" or vim.fn.isdirectory(base_dir) ~= 1 then
-    local file_dir = bufname ~= "" and vim.fs.dirname(vim.fs.normalize(bufname)) or nil
-    if file_dir and vim.fn.isdirectory(file_dir) == 1 then
-      base_dir = file_dir
-    else
-      local cwd = vim.fn.getcwd()
-      base_dir = vim.fn.isdirectory(cwd) == 1 and cwd or nil
-    end
+  if settings.source_format == "auto" then
+    settings.source_format = ok_c and cobol.detect_format and cobol.detect_format(bufnr) or "fixed"
   end
   if not base_dir then
     if opts.interactive then
@@ -326,58 +386,8 @@ function M.lint(bufnr, opts)
     return false, "invalid_working_directory"
   end
 
-  -- 构建 cobc 参数
-  local args = {
-    "-fsyntax-only",
-    "-fdiagnostics-plain-output",
-  }
-
-  if diag_cfg.dialect then
-    table.insert(args, "-std=" .. diag_cfg.dialect)
-  end
-
-  local source_format = diag_cfg.source_format or (ok_c and cobol.detect_format and cobol.detect_format(bufnr))
-  if source_format == "free" then
-    table.insert(args, "-free")
-  elseif source_format == "fixed" then
-    table.insert(args, "-fixed")
-  end
-
-  local warnings = diag_cfg.warnings or { "all", "no-obsolete" }
-  for _, w in ipairs(warnings) do
-    if w == "all" then
-      table.insert(args, "-Wall")
-    elseif w:sub(1, 2) == "no" then
-      table.insert(args, "-W" .. w)
-    elseif w:sub(1, 1) == "W" then
-      table.insert(args, "-" .. w)
-    else
-      table.insert(args, "-W" .. w)
-    end
-  end
-
-  -- 引入 Copybook 搜索路径
-  table.insert(args, "-I")
-  table.insert(args, base_dir)
-
-  local copy_paths = diag_cfg.copybook_paths or plugin_cfg.copybook_paths
-    or { ".", "./cpy", "./include", "../copybooks", "../include" }
-  for _, p in ipairs(copy_paths) do
-    local full_p = vim.fs.normalize(base_dir .. "/" .. p)
-    table.insert(args, "-I")
-    table.insert(args, full_p)
-  end
-
-  -- 额外自定义参数
-  local extra_args = diag_cfg.extra_args or plugin_cfg.cobc_extra_args
-  if extra_args and type(extra_args) == "table" then
-    for _, ea in ipairs(extra_args) do
-      table.insert(args, ea)
-    end
-  end
-
   -- 通过 STDIN 传递当前未保存的缓冲区内容
-  table.insert(args, "-")
+  local args = project.compiler_args(settings, base_dir, "check", "-")
 
   -- 异步调用 GnuCOBOL。目录可能在检查后被删除，防止同步 spawn 异常逃逸到定时回调。
   local command = vim.list_extend({ compiler }, args)
@@ -467,6 +477,10 @@ function M.clear(bufnr)
   if vim.api.nvim_buf_is_valid(bufnr) then
     vim.diagnostic.reset(M.ns, bufnr)
   end
+  for related in pairs(M.related_buffers[bufnr] or {}) do
+    if vim.api.nvim_buf_is_valid(related) then vim.diagnostic.reset(M.ns, related) end
+  end
+  M.related_buffers[bufnr] = nil
 end
 
 -- 打开 Quickfix 列表展示所有 COBOL 语法诊断

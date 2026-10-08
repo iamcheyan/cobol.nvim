@@ -112,13 +112,52 @@ In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12;
 
 ## Navigation and outline
 
-- `gd` / `:CobolGotoDef`: jump to a paragraph, data definition, or copybook.
-- `gf` / `:CobolGotoCopybook`: open the copybook under the cursor.
-- `K` / `:CobolPreview`: preview a paragraph or copybook in a floating window.
+- `gd` / `:CobolGotoDef`: search the source and recursively referenced Copybooks; choose when names are ambiguous.
+- `gf` / `:CobolGotoCopybook`: open the Copybook under the cursor, with a choice when paths are ambiguous.
+- `K` / `:CobolPreview`: preview the declaration and its source file in a floating window.
 - `<C-o>`: return through Neovim's jump list.
 - `<leader>cs`: toggle the optional Aerial Outline sidebar.
 
 The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Aerial displays these symbols in a searchable Neovim sidebar; without Aerial, all other navigation features remain available.
+
+After a cross-file jump, press `<C-o>` to return or `<C-i>` to repeat the jump.
+
+## GnuCOBOL fixed-format project profile
+
+Create `.cobol.json` in the project root:
+
+```json
+{
+  "source_format": "fixed",
+  "dialect": "default",
+  "compiler": "cobc",
+  "copybook_paths": ["copy", "cpy"],
+  "warnings": ["all", "no-obsolete"],
+  "compiler_args": ["-Wall"],
+  "commands": {
+    "build": ["make", "build"],
+    "run": ["make", "run"],
+    "test": ["make", "test"]
+  }
+}
+```
+
+Project paths resolve from the discovered root. The same Copybook paths,
+compiler, format, dialect, and extra arguments are used by navigation,
+completion, diagnostics, and single-file builds. Without explicit commands,
+the plugin recognizes Makefile `build`/`all`, `run`, and `test`/`check`
+targets. Command values are argument arrays and run without a shell. A
+single-source project without a Makefile falls back to `cobc`; multi-source
+projects should define their own build rules. Save the current buffer before
+running project commands.
+
+If a Makefile defines build rules but no `run` target, add one or set
+`commands.run`; the plugin reports the missing entry point instead of guessing
+which program to run.
+
+`:CobolBuild`, `:CobolRun`, and `:CobolTest` run asynchronously. Compiler
+locations are placed in Quickfix; use `:cnext` and `:cprev` to move between
+entries.
 
 ## Completion
 
@@ -129,6 +168,11 @@ The source suggests common COBOL verbs and clauses, ready-to-expand snippets suc
 Completion is an optional convenience: the ruler, navigation, calculator, folding, formatting, and diagnostics continue to work without `blink.cmp`.
 
 ## Folding and formatting
+
+Fixed-format buffers use COBOL-aware indentation for common blocks and data
+levels. Run `gg=G` to indent the file or `=` over a Visual selection.
+Sequence/indicator lines, continuation lines, comments, and nonblank reference
+area text at columns 73–80 are preserved.
 
 The plugin provides native folding for Divisions, Sections, Paragraphs, and data records: `za` toggles the current fold, `zc` closes it, and `zo` opens it.
 
@@ -167,6 +211,7 @@ Unsaved buffer contents are passed to the compiler through standard input when p
 | `:CobolQuickfix` | Open the diagnostics Quickfix list |
 | `:CobolDiagnosticsToggle` | Toggle automatic diagnostics |
 | `:CobolToggleComment` | Toggle a fixed-format comment |
+| `:CobolBuild` / `:CobolRun` / `:CobolTest` | Build, run, or check the project |
 
 ## Practice repository
 

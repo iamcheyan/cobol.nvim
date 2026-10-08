@@ -172,8 +172,8 @@ function M.setup_highlights()
   set("CobolLevel88", { fg = "#c678dd", bold = true })        -- 88 标志号（鲜明紫）
   set("CobolConditionName", { fg = "#e5c07b", bold = true })  -- 88 条件名（暖金黄）
   set("CobolLevel01", { fg = "#61afef", bold = true })        -- 01 顶级记录号（亮蓝）
-  set("CobolHierarchyHint", { fg = "#5c6370", italic = true })-- 行尾宿主回溯虚词
-  set("CobolSizeHint", { fg = "#7f848e", italic = true })      -- 字段字节数提示
+  set("CobolHierarchyHint", { fg = "#8be9fd", italic = true }) -- 行尾宿主回溯提示：亮青色，蓝色光标行上仍清晰
+  set("CobolSizeHint", { fg = "#ffe08a", bold = true })        -- 字段字节数提示：暖黄色，强调计算结果
   set("CobolRecordSizeHint", { fg = "#98c379", bold = true })  -- 01 Record 内存总计提示
 
   -- 72 列越界代码高亮（醒目告警）
@@ -658,6 +658,9 @@ function M.attach(bufnr)
 
   setup_comment_syntax(bufnr)
   setup_folding(bufnr)
+  if M.detect_format(bufnr) == "fixed" then
+    require("cobol.indent").setup(bufnr)
+  end
 
   -- 设置贯穿标尺：默认关闭 colorcolumn 背景色块；仅当显式要求时才开启
   vim.b[bufnr].cobol_orig_colorcolumn = vim.opt_local.colorcolumn:get()
@@ -966,6 +969,8 @@ function M.setup(opts)
       vim.notify("COBOL Diagnostics: " .. status, vim.log.levels.INFO)
     end
   end, { desc = "COBOL: Toggle GnuCOBOL diagnostics linter" })
+
+  require("cobol.commands").setup()
 
   -- 针对 COBOL 文件类型的自动命令
   local group = vim.api.nvim_create_augroup("CobolNvimGroup", { clear = true })

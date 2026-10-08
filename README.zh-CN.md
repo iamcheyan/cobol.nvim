@@ -21,7 +21,7 @@
 | 方向 | 提供的功能 | 对用户的帮助 |
 | --- | --- | --- |
 | 固定格式布局 | 第 7、8、12、73 列标尺、越界高亮、列跳转 | 直观看到 COBOL 各个源码区域 |
-| 结构与导航 | Winbar 面包屑、折叠、`gd`、`gf`、`K` | 快速浏览 Division、段落、字段和 Copybook |
+| 结构与导航 | Winbar 面包屑、折叠、`gd`、`gf`、`K` | 快速浏览 Division、段落、字段和递归引用的 Copybook |
 | 数据布局 | PIC 和记录大小估算，支持 `OCCURS`、`REDEFINES` | 帮助理解记录在内存中的组织方式 |
 | 代码补全 | COBOL 关键字、动词、子句、代码片段、数据名、段落和 Copybook | 减少重复输入，也帮助你熟悉 COBOL 的词汇和程序结构 |
 | 上下文信息 | 格式、源码区域、面包屑、当前 PIC 和记录大小 | 移动光标时始终看到最重要的 COBOL 上下文 |
@@ -84,6 +84,39 @@
 
 `project_root` 和 `copybook_paths` 用于 Copybook 导航和诊断。`source_format` 可以设置为 `auto`、`fixed` 或 `free`。没有设置项目根目录时，会使用当前文件目录。
 
+## GnuCOBOL 固定格式项目
+
+在项目根目录创建 `.cobol.json`。插件会向上查找该文件、Makefile 或 Git 根目录；项目配置中的相对路径都从项目根目录解析。
+
+```json
+{
+  "source_format": "fixed",
+  "dialect": "default",
+  "compiler": "cobc",
+  "copybook_paths": ["copy", "cpy"],
+  "compiler_args": ["-Wall"],
+  "commands": {
+    "build": ["make", "build"],
+    "run": ["make", "run"],
+    "test": ["make", "test"]
+  }
+}
+```
+
+- `source_format`：`fixed`、`free` 或 `auto`。GnuCOBOL 固定格式项目建议明确写 `fixed`。
+- `dialect`：传给 GnuCOBOL 的 `-std=` 值。
+- `compiler`：编译器可执行文件名或路径，默认 `cobc`。
+- `copybook_paths`：Copybook 目录列表；每个目录作为单独的 `-I` 参数，也用于导航。
+- `warnings`：GnuCOBOL 警告选项列表，例如 `["all", "no-obsolete"]`，会同时用于诊断和构建。
+- `compiler_args`：额外编译参数。
+- `commands`：可选的 build/run/test 命令参数数组。每项是独立参数，不经过 shell。省略时插件会识别 Makefile 的 `build`/`all`、`run`、`test`/`check` 目标。
+
+没有 `.cobol.json` 时会提示一次，并回退到 Neovim 插件配置与默认 GnuCOBOL 参数；配置格式错误时也会给出原因并回退。
+
+单文件项目没有 Makefile 时，`:CobolBuild` 用配置的编译器构建，`:CobolRun` 构建后运行，`:CobolTest` 执行语法检查。多源文件项目请提供 Makefile 或显式命令，避免插件猜测链接方式。项目命令读取磁盘文件，运行前请保存当前缓冲区。
+
+若 Makefile 有构建规则但没有 `run` 目标，请在 Makefile 添加 `run`，或在配置中设置 `commands.run`；插件会提示缺少运行入口，不会猜测要执行哪个程序。
+
 ## 第一次使用建议
 
 1. 打开 COBOL 源文件并观察列标尺。固定格式中，第 7 列是指示区，第 8–11 列是 Area A，第 12–72 列是 Area B，第 73 列开始是标识区。
@@ -95,6 +128,8 @@
 
 ## 固定格式、导航与折叠
 
+固定格式缩进根据 Area A / Area B、数据级别和常见结束语句调整缩进，并避免程序文本越过第 72 列。可用 `==` 触发当前行缩进；Normal 模式用 `gg=G` 整理整个文件，Visual 模式用 `=` 整理选区。带序号列的行会跳过自动缩进。
+
 使用 `<leader>uc` 或 `:CobolGuideToggle` 切换列标尺。第 72 列之后的文本会被高亮，因为固定格式编译器通常会忽略它。
 
 标尺虚拟文字使用 `hl_mode = "combine"`，保留主题的 `CursorColumn` 和 `CursorLine` 背景；因此第 7、8、12、73 列与光标重合时，整条竖线仍然可见，不覆盖源码字符。
@@ -102,12 +137,14 @@
 | 快捷键 | 作用 |
 | --- | --- |
 | `g7` / `g8` / `g12` / `g73` | 跳到指示列、Area A、Area B、标识区 |
-| `gd` / `:CobolGotoDef` | 跳转到段落、数据定义或 Copybook |
-| `gf` / `:CobolGotoCopybook` | 打开光标所在的 Copybook |
-| `K` / `:CobolPreview` | 浮动窗口预览段落或 Copybook |
+| `gd` / `:CobolGotoDef` | 搜索当前文件及递归引用的 Copybook 定义；重名时选择目标 |
+| `gf` / `:CobolGotoCopybook` | 打开 Copybook；多个同名文件时选择路径 |
+| `K` / `:CobolPreview` | 浮动窗口预览定义或 Copybook 来源 |
 | `<C-o>` | 通过 Neovim 跳转列表返回 |
 | `<leader>cs` | 切换可选的 Aerial Outline 侧边栏 |
 | `za` / `zc` / `zo` | 切换、关闭、打开当前折叠 |
+
+跨文件跳转后按 `Ctrl-o` 返回，按 `Ctrl-i` 再次前进。Copybook 必须位于搜索目录并由源文件的 `COPY name.` 引用；递归 `COPY` 和 `COPY ... REPLACING` 也能定位符号。搜索路径和编译参数统一来自项目配置。
 
 插件自带的 Aerial backend 可以识别 Division、Section、Paragraph、文件描述和 01 级记录；Aerial 会把这些符号显示在可搜索的 Neovim 侧边栏中。不安装 Aerial 时，其他导航功能仍然可用。
 
@@ -152,6 +189,7 @@ cobc -fsyntax-only ...
 | `:CobolLint` / `:CobolQuickfix` | 执行诊断、打开 Quickfix |
 | `:CobolDiagnosticsToggle` | 切换自动诊断 |
 | `:CobolToggleComment` | 切换固定格式注释 |
+| `:CobolBuild` / `:CobolRun` / `:CobolTest` | 构建、运行或检查当前项目 |
 
 ## 配套练习仓库
 
