@@ -117,7 +117,7 @@ Aerial のコード構造サイドバーを使う場合は、Aerial と COBOL ba
 
 Division、Section、Paragraph、データレコードをネイティブに折りたためます。Insert モードの `<Tab>` は Area A または Area B に合わせて入力位置を移動します。`<leader>c*` と `:CobolToggleComment` は検出した形式に応じてコメントを切り替えます。固定形式では 7 列目に `*`、自由形式では `*>` を使います。
 
-固定形式の Insert モードでは、`<Tab>` で 7、8、12 列へ順に移動し、12 列以降は通常の `shiftwidth` 分のインデントを挿入します。`<S-Tab>` は逆方向に戻り、ソースコードを削除しません。詳細は[固定形式 Tab の説明](docs/FIXED_FORMAT_TAB.md)を参照してください。
+固定形式の Insert モードでは、`<Tab>` で 7、8、12 列へ順に移動し、12 列以降は通常の `shiftwidth` 分のインデントを挿入します。`<S-Tab>` は逆方向に戻り、ソースコードを削除しません。詳しい説明と練習は[中国語の完全ガイド](README.zh-CN.md#2-固定格式-tab-和智能缩进)を参照してください。
 
 ## フォーマットと PIC 計算
 
@@ -177,5 +177,3 @@ nvim INPUTCSV.COB
 ```
 
 Aerial がない場合、Aerial 専用テストはスキップされます。その他のコアテストには Aerial は必要ありません。MIT。詳細は [LICENSE](LICENSE) を参照してください。
-
-完了済みおよび今後の拡張項目は [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md) にまとめています。

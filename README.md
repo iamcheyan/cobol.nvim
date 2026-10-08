@@ -6,6 +6,10 @@ The plugin helps you read existing COBOL programs, understand their layout, find
 
 [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
+The complete Chinese learning guide includes a COBOL introduction, a reference
+for every plugin feature, project setup, and step-by-step exercises:
+[README.zh-CN.md](README.zh-CN.md).
+
 ![cobol.nvim overview](assets/cobol.nvim-overview.png)
 
 The screenshot shows the main workflow: the Aerial structure outline, fixed-format column guides, COBOL navigation, and a copybook preview in the editor. Aerial is a Neovim plugin that provides a searchable code-structure Outline sidebar.
@@ -108,7 +112,7 @@ Toggle the guide with `<leader>uc` or `:CobolGuideToggle`. The plugin highlights
 
 At the start of a line, Insert-mode `<Tab>` moves input toward Area A or Area B instead of inserting arbitrary indentation. `<leader>c*` and `:CobolToggleComment` toggle comments according to the detected source format: fixed format uses `*` in column 7, while free format uses `*>`. Visual selections are supported.
 
-In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12; from column 12 onward it inserts a normal `shiftwidth` indent. `<S-Tab>` reverses through these stops without deleting source text. See [the complete fixed-format Tab behavior](docs/FIXED_FORMAT_TAB.md).
+In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12; from column 12 onward it inserts a normal `shiftwidth` indent. `<S-Tab>` reverses through these stops without deleting source text. See the [complete Chinese fixed-format guide](README.zh-CN.md#2-固定格式-tab-和智能缩进).
 
 ## Navigation and outline
 
@@ -243,8 +247,6 @@ Run the test suite from the repository root:
 ```
 
 The Aerial-specific test is skipped when Aerial is not installed; the core tests do not require it.
-
-The planned and completed enhancements are tracked in [docs/ENHANCEMENTS.md](docs/ENHANCEMENTS.md).
 
 ## License
 

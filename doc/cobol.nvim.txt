@@ -1,75 +1,158 @@
 *cobol.nvim*
 
-COBOL support for Neovim with fixed-format guides, navigation, completion, PIC
-size calculation, folding, case formatting, and GnuCOBOL diagnostics. Aerial is an
-optional Neovim plugin that provides a searchable code-structure Outline
-sidebar; this plugin supplies its COBOL backend.
+COBOL editing support for Neovim, with fixed-format guides, smart indentation,
+navigation, Copybook lookup, completion, PIC size estimates, folding, and
+GnuCOBOL diagnostics. A COBOL language server is not required.
 
-===============================================================================
+The complete Chinese learning guide, including examples and exercises, is in
+README.zh-CN.md at the plugin root.
+
+==============================================================================
 CONTENTS                                                            *cobol.nvim*
 
   Setup                         |cobol-setup|
-  Completion                    |cobol-completion|
-  Context component              |cobol-statusline|
-  Commands                      |cobol-commands|
-  GnuCOBOL projects              |cobol-projects|
+  Fixed-format source           |cobol-fixed-format|
+  Navigation                    |cobol-navigation|
+  Completion and outline        |cobol-completion|
+  PIC and record layout         |cobol-calculator|
+  Diagnostics and build         |cobol-diagnostics|
+  Project profile               |cobol-projects|
+  Commands and mappings         |cobol-commands|
   Configuration                 |cobol-configuration|
 
-===============================================================================
+==============================================================================
 SETUP                                                               *cobol-setup*
 
-Install iamcheyan/cobol.nvim with your plugin manager and call:
+Install iamcheyan/cobol.nvim with your plugin manager:
 
-    require("cobol").setup({})
+    {
+      "iamcheyan/cobol.nvim",
+      ft = { "cobol", "cbl", "cob" },
+      opts = {},
+    }
 
-Aerial is optional. Install it when you want a searchable code-structure
-Outline sidebar, then add the COBOL backend to Aerial's `backends` filetype
-map.
+The plugin attaches to buffers with filetype cobol, cbl, or cob. GnuCOBOL
+(cobc) enables compiler checks and builds. blink.cmp enables completion.
+Aerial is optional and provides the searchable Outline sidebar. None of
+these optional integrations is required for the other core features.
 
-COMPLETION                                                        *cobol-completion*
+==============================================================================
+FIXED-FORMAT SOURCE                                           *cobol-fixed-format*
 
-When blink.cmp is installed, cobol.nvim automatically registers a completion
-source for `cobol`, `cbl`, and `cob` buffers. It provides COBOL keywords,
-verbs, clauses, snippets, names declared in the current buffer, and symbols
-from referenced Copybooks. A COBOL language server is not required.
+Fixed-format columns:
 
-Completion is optional. The fixed-format guide, navigation, calculator,
-folding, formatting, and diagnostics work without blink.cmp.
+  1-6    Sequence area
+  7      Indicator: blank for source, * for comment, / for page eject,
+         - for continuation
+  8-11   Area A: divisions, sections, paragraphs, and high-level entries
+  12-72  Area B: statements, clauses, and data items
+  73-80  Identification area; source beyond column 72 may be ignored
 
-CONTEXT COMPONENT                                                   *cobol-statusline*
+Default visual guides are at columns 7, 8, 12, and 73. Text past column 72 is
+highlighted. The guides can be toggled with <leader>uc or :CobolGuideToggle.
 
-Use `require("cobol.statusline").component()` with lualine or a similar
-status component system. `require("cobol.statusline").get()` returns a string
-containing the source format, fixed-format area, breadcrumb, current PIC
-field, and enclosing record size. It returns an empty string outside COBOL
-buffers. The COBOL winbar includes this context automatically.
+Normal-mode column motions:
 
-===============================================================================
-COMMANDS                                                            *cobol-commands*
+  g7      Indicator column
+  g8      Area A
+  g12     Area B
+  g73     Identification area
 
-:CobolFormatCase       Uppercase COBOL reserved words in the current line,
-                       a Visual range, or the whole file.
-:CobolLint              Run GnuCOBOL syntax diagnostics.
-:CobolQuickfix          Open COBOL diagnostics in the quickfix list.
-:CobolCalcRecord        Show the current 01 record layout.
-:CobolGotoDef           Jump to a paragraph or data definition.
-:CobolGotoCopybook      Open the Copybook under the cursor.
-:CobolPreview           Preview a Copybook or definition.
-:CobolDiagnosticsToggle Toggle compiler diagnostics.
-:CobolGuideToggle       Toggle the fixed-format guide.
-:CobolBuild             Build the current source or project asynchronously.
-:CobolRun               Build and run a single source or call the project command.
-:CobolTest              Run project tests or a compiler syntax check.
+In fixed-format Insert mode, <Tab> moves through columns 7, 8, and 12 when
+the text before the cursor is whitespace. From column 12 onward it inserts
+shiftwidth spaces (4 when shiftwidth is unset or zero). <S-Tab> moves back
+through those stops without deleting source to the right. With source text
+before the cursor, the mappings fall back to normal editor behavior.
 
-Build output and compiler diagnostics are placed in the quickfix list. Use
-:cnext and :cprev to move between reported locations. Project build commands
-read saved files; save the current buffer first.
+The indentexpr understands common blocks (IF, EVALUATE, PERFORM, READ,
+SEARCH, WRITE, EXEC), Area A/B, and data levels. Reindent a line with ==, a
+file with gg=G, or a selection with =. This is a helpful heuristic, not a
+complete COBOL parser; inspect continuation lines and compiler output.
 
-===============================================================================
-GNUCOBOL PROJECTS                                                   *cobol-projects*
+gcc toggles the current line comment. Visual gc toggles selected lines.
+<leader>c* and :CobolToggleComment are also available. Fixed format uses *
+in column 7; free format uses *>.
 
-Create .cobol.json in the project root to share source format, dialect,
-compiler, Copybook directories, and extra compiler arguments:
+==============================================================================
+NAVIGATION                                                       *cobol-navigation*
+
+gd jumps to a paragraph, section, or data definition in the current source and
+recursively referenced Copybooks. Ambiguous definitions are offered in a
+selection list. The plugin provides this navigation without a COBOL LSP.
+
+  gf      Open the Copybook on the current COPY statement
+  K       Preview a definition or Copybook in a floating window
+  <C-o>   Return to the previous jump location
+  <C-i>   Move forward through the jump list
+
+Copybook search paths come from .cobol.json or the copybook_paths plugin
+option. COPY ... REPLACING is supported for identifying the Copybook name.
+The same configured paths are passed to GnuCOBOL as -I include directories.
+
+==============================================================================
+COMPLETION AND OUTLINE                                         *cobol-completion*
+
+When blink.cmp is available and completion.enable is true, a COBOL source is
+registered for filetypes cobol, cbl, and cob. Candidates include keywords,
+verbs, clauses, snippets, symbols in the current buffer, and symbols in
+referenced Copybooks. No COBOL language server is needed.
+
+Aerial is optional. Its COBOL backend provides outline symbols for divisions,
+sections, paragraphs, file descriptions, and level-01 records. Without Aerial,
+the rest of cobol.nvim continues to work.
+
+Folding recognizes Division, Section, Paragraph, and data structure ranges.
+Use the built-in Neovim keys za, zc, zo, zR, and zM to toggle, close, open,
+open all, and close all folds.
+
+==============================================================================
+PIC AND RECORD LAYOUT                                           *cobol-calculator*
+
+The calculator shows a field-size hint near data definitions and can produce
+a field/offset table for a level-01 record:
+
+  <leader>cr
+  :CobolCalcRecord
+
+It estimates common DISPLAY, COMP/BINARY, COMP-3/PACKED-DECIMAL, COMP-1,
+COMP-2, OCCURS, and REDEFINES layouts. 88-level conditions do not occupy
+independent storage.
+
+These are learning and review estimates, not an ABI guarantee. Compiler
+version, dialect, target platform, alignment, separate signs, nested groups,
+and OCCURS DEPENDING ON can affect actual storage. Verify production record
+sizes with the target compiler and platform.
+
+==============================================================================
+DIAGNOSTICS AND BUILD                                         *cobol-diagnostics*
+
+When diagnostics are enabled, the plugin runs cobc asynchronously after
+save, after a debounced edit, and when leaving Insert mode. This does not
+block typing. Copybook diagnostics are mapped to the Copybook and, where
+possible, annotated at the COPY line in the source program.
+
+  <leader>cl / :CobolLint       Run a syntax check now
+  <leader>cq / :CobolQuickfix   Open diagnostic Quickfix entries
+  :cnext / :cprev               Move between Quickfix entries
+  :CobolDiagnosticsToggle       Enable or disable automatic checks
+
+Single-file projects without a Makefile use the configured cobc executable:
+
+  :CobolTest    Run a syntax-only check
+  :CobolBuild   Compile the current source
+  :CobolRun     Compile and run the current source
+
+Project commands read files from disk; save the current buffer first. For
+multi-source projects, define build/run/test commands or Makefile targets.
+If a project has a build rule but no run target, the plugin does not guess
+which executable should run.
+
+==============================================================================
+PROJECT PROFILE                                                   *cobol-projects*
+
+Place .cobol.json at the project root. The plugin searches upward from the
+current file for .cobol.json, Makefile, or a Git root. Relative paths resolve
+from the detected root.
 
     {
       "source_format": "fixed",
@@ -77,39 +160,94 @@ compiler, Copybook directories, and extra compiler arguments:
       "compiler": "cobc",
       "copybook_paths": ["copy", "cpy"],
       "warnings": ["all", "no-obsolete"],
-      "compiler_args": ["-Wall"]
+      "compiler_args": [],
+      "commands": {
+        "build": ["make", "build"],
+        "run": ["make", "run"],
+        "test": ["make", "test"]
+      }
     }
 
-Paths are relative to the detected root. The profile is used by both compiler
-diagnostics, completion, Copybook lookup, and builds. If a Makefile has build/all, run, or test/check
-targets, the matching commands use those targets. The commands object can
-override them with argument arrays, for example:
+source_format accepts fixed, free, or auto. compiler is an executable name
+or path. copybook_paths, compiler_args, and warnings are arrays of strings.
+Each commands entry is an argument array executed directly, without a shell.
+Makefile targets build/all, run, and test/check are detected when commands
+are omitted.
 
-    "commands": {
-      "build": ["make", "build"],
-      "run": ["make", "run"],
-      "test": ["make", "test"]
-    }
+==============================================================================
+COMMANDS AND MAPPINGS                                           *cobol-commands*
 
-Single-source projects without a Makefile use cobc to build, run, or check.
-For multi-source projects, define Makefile targets or explicit commands so
-that linking follows the project build rules.
-If the Makefile provides build rules but no run target, add commands.run or a
-Makefile run target; the plugin will not guess which executable to launch.
+Guide and editing:
 
-===============================================================================
-CONFIGURATION                                                       *cobol-configuration*
+  :CobolGuideToggle          Toggle the column guide
+  :CobolGuideEnable          Enable the column guide
+  :CobolGuideDisable         Disable the column guide
+  :CobolToggleComment        Toggle comments; accepts a line range
+  :CobolFormatCase           Uppercase recognized reserved words in a range
 
-project_root             Project root used for Copybook lookup and cobc cwd.
-copybook_paths           Relative directories searched for Copybooks.
-cobc_command             Compiler command; defaults to "cobc".
-cobc_extra_args          Additional compiler arguments.
-folding.enable           Enable structural COBOL folding.
-diagnostics.enable       Enable asynchronous compiler diagnostics.
-diagnostics.debounce_ms  Delay for TextChanged diagnostics.
-completion.enable        Enable the optional blink.cmp completion source.
+Navigation and layout:
 
-See README.md and docs/TASKS.md for examples, supported limitations, and the
-development checklist.
+  :CobolGotoDef              Jump to a COBOL definition
+  :CobolGotoCopybook         Open the Copybook under the cursor
+  :CobolPreview              Preview a definition or Copybook
+  :CobolCalcRecord           Show a level-01 record layout
+
+Compiler:
+
+  :CobolLint                 Run a syntax check
+  :CobolQuickfix             Open COBOL diagnostics
+  :CobolDiagnosticsToggle    Toggle automatic compiler diagnostics
+  :CobolBuild                Build the source or project
+  :CobolRun                  Build and run the source or project
+  :CobolTest                 Run project tests or a syntax check
+
+Default buffer-local mappings:
+
+  g7 g8 g12 g73              Jump to fixed-format columns
+  gd gf K                    Definition, Copybook, and preview navigation
+  <leader>uc                 Toggle the column guide
+  gcc / Visual gc            Toggle comments
+  <leader>c*                 Toggle comments
+  <leader>cr                 Calculate record layout
+  <leader>cl / <leader>cq    Lint / open Quickfix
+  Insert <Tab> / <S-Tab>     Fixed-format column stops
+
+<leader> is defined by the user's Neovim configuration. These mappings are
+buffer-local and can be disabled with keymaps = false.
+
+==============================================================================
+CONFIGURATION                                               *cobol-configuration*
+
+Common options and defaults:
+
+  enabled                  true
+  columns                  { 7, 8, 12, 73 }
+  show_lines               true
+  char                     "│"
+  show_winbar              true
+  show_breadcrumbs         true
+  show_hierarchy_hint      true
+  show_pic_size            true
+  highlight_levels         true
+  show_colorcolumn         false
+  highlight_overflow       true
+  overflow_col             72
+  smart_tab                true
+  smart_comments           true
+  keymaps                  true
+  source_format            "auto"
+  copybook_paths           common project Copybook directories
+  cobc_command             "cobc"
+  cobc_extra_args          {}
+  folding.enable           true
+  diagnostics.enable       true
+  diagnostics.on_save      true
+  diagnostics.on_change    true
+  diagnostics.debounce_ms  600
+  diagnostics.warnings     { "all", "no-obsolete" }
+  completion.enable        true (only active when blink.cmp is installed)
+
+For a learning guide, examples, and step-by-step exercises, see
+README.zh-CN.md in the plugin root.
 
 vim:tw=78:ts=8:ft=help:norl:
