@@ -40,6 +40,16 @@ for _, item in ipairs(keywords) do
 end
 assert(found_perform, "completion should include COBOL keywords")
 
+local all_items = completion.complete(lines, "")
+local display_count, ascending_count, unstring_count = 0, 0, 0
+for _, item in ipairs(all_items) do
+  if item.label == "DISPLAY" then display_count = display_count + 1 end
+  if item.label == "ASCENDING" then ascending_count = ascending_count + 1 end
+  if item.label == "UNSTRING" then unstring_count = unstring_count + 1 end
+end
+assert(display_count == 1 and ascending_count == 1 and unstring_count == 1,
+  "duplicate keyword declarations should not create duplicate completion candidates")
+
 local snippets = completion.complete(lines, "IF")
 local found_if_snippet = false
 for _, item in ipairs(snippets) do
