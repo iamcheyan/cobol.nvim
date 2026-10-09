@@ -58,7 +58,7 @@ end
 function M.load(root)
   if not root or root == "" then return {} end
   local path = vim.fs.joinpath(root, ".cobol.json")
-  if vim.fn.filereadable(path) ~= 1 then return nil, "no .cobol.json found; using Neovim defaults" end
+  if vim.fn.filereadable(path) ~= 1 then return {} end
   local contents = table.concat(vim.fn.readfile(path), "\n")
   local ok, profile = pcall(vim.json.decode, contents)
   if not ok then return nil, "invalid .cobol.json: " .. tostring(profile) end

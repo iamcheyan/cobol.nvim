@@ -148,7 +148,10 @@ Create `.cobol.json` in the project root:
 
 Project paths resolve from the discovered root. The same Copybook paths,
 compiler, format, dialect, and extra arguments are used by navigation,
-completion, diagnostics, and single-file builds. Without explicit commands,
+completion, diagnostics, and single-file builds. The profile is optional: when
+`.cobol.json` is absent, Neovim defaults are used silently; malformed JSON or
+invalid profile fields still produce a warning and fall back to safe defaults.
+Without explicit commands,
 the plugin recognizes Makefile `build`/`all`, `run`, and `test`/`check`
 targets. Command values are argument arrays and run without a shell. A
 single-source project without a Makefile falls back to `cobc`; multi-source

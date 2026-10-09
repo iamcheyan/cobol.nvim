@@ -244,7 +244,7 @@ local cobol_status = require("cobol.statusline")
 
 ## GnuCOBOL 项目配置
 
-插件沿当前文件目录向上查找 `.cobol.json`、Makefile 或 Git 根目录。建议为固定格式 GnuCOBOL 项目在根目录建立 `.cobol.json`：
+插件沿当前文件目录向上查找 `.cobol.json`、Makefile 或 Git 根目录。建议为固定格式 GnuCOBOL 项目在根目录建立 `.cobol.json`；没有 profile 时会静默使用 Neovim 默认设置，JSON 或字段无效时才显示警告并回退。
 
 ~~~json
 {

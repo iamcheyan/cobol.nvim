@@ -152,7 +152,9 @@ PROJECT PROFILE                                                   *cobol-project
 
 Place .cobol.json at the project root. The plugin searches upward from the
 current file for .cobol.json, Makefile, or a Git root. Relative paths resolve
-from the detected root.
+from the detected root. The profile is optional: when .cobol.json is absent,
+Neovim defaults are used silently; invalid JSON or profile fields still produce
+an error notification and fall back to safe defaults.
 
     {
       "source_format": "fixed",

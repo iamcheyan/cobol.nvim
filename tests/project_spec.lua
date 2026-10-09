@@ -45,8 +45,8 @@ assert(cwd_settings.root == vim.fn.getcwd(), "a missing root should safely fall 
 local no_profile = root .. "/no-profile"
 vim.fn.mkdir(no_profile, "p")
 local default_settings, missing_message = project.settings(no_profile, { cobc_command = "safe-default-cobc" })
-assert(default_settings.compiler == "safe-default-cobc" and missing_message:find("using Neovim defaults", 1, true),
-  "a missing profile should explain the fallback and retain safe global settings")
+assert(default_settings.compiler == "safe-default-cobc", "missing project profile should retain global defaults")
+assert(missing_message == nil, "an optional missing .cobol.json should use defaults without warning")
 vim.fn.writefile({ vim.json.encode({ warnings = "all" }) }, root .. "/.cobol.json")
 local invalid_warnings, warning_error = project.settings(root, { cobc_command = "cobc" })
 assert(invalid_warnings and warning_error, "malformed warning configuration should fall back with an error")
