@@ -8,7 +8,7 @@ The complete Chinese learning guide, including examples and exercises, is in
 README.zh-CN.md at the plugin root.
 
 ==============================================================================
-CONTENTS                                                            *cobol.nvim*
+CONTENTS                                                            cobol.nvim
 
   Setup                         |cobol-setup|
   Fixed-format source           |cobol-fixed-format|
