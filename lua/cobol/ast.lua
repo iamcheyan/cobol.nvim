@@ -15,14 +15,8 @@ local kinds = {
   start_statement = { name = "START", ending = "END-START", end_node = "END_START" },
   string_statement = { name = "STRING", ending = "END-STRING", end_node = "END_STRING" },
   unstring_statement = { name = "UNSTRING", ending = "END-UNSTRING", end_node = "END_UNSTRING" },
-  xml_parse_statement = { name = "XML PARSE", ending = "END-XML", end_node = "END_XML" },
-  json_parse_statement = { name = "JSON PARSE", ending = "END-JSON", end_node = "END_JSON" },
-  exec_sql_statement = { name = "EXEC SQL", ending = "END-EXEC", end_node = "END_EXEC" },
-  class_id_header = { name = "CLASS-ID", ending = "END CLASS", end_node = "END_CLASS" },
-  method_id_header = { name = "METHOD-ID", ending = "END METHOD", end_node = "END_METHOD" },
-  factory_header = { name = "FACTORY", ending = "END FACTORY", end_node = "END_FACTORY" },
-  object_header = { name = "OBJECT", ending = "END OBJECT", end_node = "END_OBJECT" },
 }
+M.kinds = kinds
 
 local function is_cobol(bufnr)
   local ft = vim.bo[bufnr or 0].filetype
@@ -256,50 +250,6 @@ function M.aerial_items(bufnr)
     end
     if limit and limit >= w.lnum then
       w.end_lnum = limit
-    end
-  end
-
-  -- 3. EXEC SQL statements (SELECT, INSERT, UPDATE, DELETE, CURSOR, FETCH, OPEN, CLOSE, COMMIT, ROLLBACK)
-  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
-  local in_sql = false
-  local sql_start_lnum = nil
-  local sql_action = nil
-  for lnum, line in ipairs(lines) do
-    local upper = line:upper()
-    if not in_sql then
-      if upper:find("EXEC%s+SQL") then
-        in_sql = true
-        sql_start_lnum = lnum
-        sql_action = upper:match("EXEC%s+SQL%s+([A-Z]+)")
-      end
-    else
-      if not sql_action or sql_action == "" then
-        sql_action = upper:match("%s*([A-Z]+)")
-      end
-      if upper:find("END%-EXEC") then
-        local act = sql_action or "EXEC"
-        for _, known in ipairs({ "SELECT", "INSERT", "UPDATE", "DELETE", "CURSOR", "FETCH", "OPEN", "CLOSE", "COMMIT", "ROLLBACK" }) do
-          if act:find(known, 1, true) then
-            act = known
-            break
-          end
-        end
-        local label = (act == "SELECT" or act == "UPDATE" or act == "INSERT" or act == "DELETE")
-          and ("SQL " .. act)
-          or (act == "EXEC" and "EXEC SQL" or ("SQL " .. act))
-        items[#items + 1] = {
-          name = label,
-          kind = "Event",
-          lnum = sql_start_lnum,
-          col = 0,
-          end_lnum = lnum,
-          end_col = #line,
-          children = {},
-        }
-        in_sql = false
-        sql_start_lnum = nil
-        sql_action = nil
-      end
     end
   end
 

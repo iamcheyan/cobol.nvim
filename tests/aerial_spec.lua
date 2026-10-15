@@ -26,12 +26,9 @@ call setline(1, [
       \ '           READ ACCOUNT-FILE',
       \ '           REWRITE ACCOUNT-REC',
       \ '           WRITE AUDIT-LOG',
-      \ '           EXEC SQL',
-      \ '               SELECT * FROM CUSTOMER',
-      \ '           END-EXEC',
-      \ '           EXEC SQL',
-      \ '               UPDATE CUSTOMER',
-      \ '           END-EXEC.',
+      \ '           PERFORM UNTIL EOF-REC',
+      \ '               DISPLAY "LOOP"',
+      \ '           END-PERFORM.',
       \ ])
 ]])
 vim.bo.filetype = "cobol"
@@ -97,7 +94,8 @@ assert(when_node, 'WHEN "D" must be nested under EVALUATE')
 
 -- Find CALL CUSM001 under WHEN "D" or EVALUATE
 local call_node = nil
-for _, child in ipairs(when_node.children or eval_node.children or {}) do
+local candidates = #when_node.children > 0 and when_node.children or eval_node.children
+for _, child in ipairs(candidates or {}) do
   if child.name:find("CALL CUSM001") then
     call_node = child
     break
@@ -124,7 +122,6 @@ end
 assert(child_names["READ ACCOUNT-FILE"], "READ ACCOUNT-FILE must be present under UPDATE-ACCOUNT")
 assert(child_names["REWRITE ACCOUNT-REC"], "REWRITE ACCOUNT-REC must be present under UPDATE-ACCOUNT")
 assert(child_names["WRITE AUDIT-LOG"], "WRITE AUDIT-LOG must be present under UPDATE-ACCOUNT")
-assert(child_names["SQL SELECT"], "SQL SELECT must be present under UPDATE-ACCOUNT")
-assert(child_names["SQL UPDATE"], "SQL UPDATE must be present under UPDATE-ACCOUNT")
+assert(child_names["PERFORM UNTIL EOF-REC"], "PERFORM UNTIL EOF-REC must be present under UPDATE-ACCOUNT")
 
 print("aerial_spec: OK")

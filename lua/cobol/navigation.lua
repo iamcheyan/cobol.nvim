@@ -572,9 +572,14 @@ local function ast_textobject(kind, inner)
     local pos = vim.api.nvim_win_get_cursor(0)
     local range = ast.textobject(0, pos[1] - 1, pos[2], kind, inner)
     if not range then return end
+    local m = vim.fn.mode()
+    if m:match("[vV\22]") then
+      vim.cmd("normal! \27")
+    end
     vim.api.nvim_win_set_cursor(0, { range[1] + 1, range[2] })
     vim.cmd("normal! v")
-    vim.api.nvim_win_set_cursor(0, { range[3] + 1, math.max(range[2], range[4] - 1) })
+    local end_col = (range[1] == range[3]) and math.max(range[2], range[4] - 1) or math.max(0, range[4] - 1)
+    vim.api.nvim_win_set_cursor(0, { range[3] + 1, end_col })
   end
 end
 

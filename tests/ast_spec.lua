@@ -180,4 +180,60 @@ local win_wait = ast.show_waiting_closures_float(0)
 assert(win_wait and vim.api.nvim_win_is_valid(win_wait), "Floating waiting closures window must open")
 vim.api.nvim_win_close(win_wait, true)
 
+-- 9. Verify every mapped entry in ast.kinds exists as a valid symbol in loaded Tree-sitter grammar
+local ffi = require("ffi")
+ffi.cdef[[
+  typedef struct TSLanguage TSLanguage;
+  const TSLanguage *tree_sitter_cobol(void);
+  uint32_t ts_language_symbol_count(const TSLanguage *);
+  const char *ts_language_symbol_name(const TSLanguage *, uint16_t);
+]]
+local parser_paths = vim.api.nvim_get_runtime_file("parser/cobol.so", false)
+if #parser_paths > 0 then
+  local clib = ffi.load(parser_paths[1])
+  local ts_lang = clib.tree_sitter_cobol()
+  local sym_count = ffi.C.ts_language_symbol_count(ts_lang)
+  local grammar_syms = {}
+  for i = 0, sym_count - 1 do
+    local sname = ffi.string(ffi.C.ts_language_symbol_name(ts_lang, i))
+    grammar_syms[sname] = true
+  end
+  for k, spec in pairs(ast.kinds) do
+    assert(grammar_syms[k], "AST start node type '" .. k .. "' does not exist in COBOL tree-sitter grammar")
+    assert(grammar_syms[spec.end_node], "AST end node type '" .. spec.end_node .. "' does not exist in COBOL tree-sitter grammar")
+  end
+  -- Confirm dialect boundaries: XML, JSON, EXEC SQL, OO COBOL are absent from COBOL 85 grammar
+  assert(not grammar_syms["xml_parse_statement"], "xml_parse_statement must not be claimed unless grammar supports it")
+  assert(not grammar_syms["json_parse_statement"], "json_parse_statement must not be claimed unless grammar supports it")
+  assert(not grammar_syms["exec_sql_statement"], "exec_sql_statement must not be claimed unless grammar supports it")
+  assert(not grammar_syms["class_id_header"], "class_id_header must not be claimed unless grammar supports it")
+end
+
+-- 10. Test % mapping and textobjects from configured Neovim buffer
+local cobol = require("cobol")
+cobol.setup({})
+
+vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+  "       IDENTIFICATION DIVISION.",
+  "       PROGRAM-ID. KEYTEST.",
+  "       PROCEDURE DIVISION.",
+  "       KEY-PARA.",
+  "           IF STATUS = \"A\"",
+  "               EVALUATE TXN-TYPE",
+  "                   WHEN \"D\"",
+  "                       DISPLAY \"D\"",
+  "               END-EVALUATE",
+  "           END-IF.",
+})
+vim.bo.filetype = "cobol"
+
+-- Test % jump forward from IF (line 5) to END-IF (line 10)
+vim.api.nvim_win_set_cursor(0, { 5, 11 })
+vim.cmd("normal %")
+assert(vim.api.nvim_win_get_cursor(0)[1] == 10, "% should jump from IF (line 5) to END-IF (line 10)")
+
+-- Test % jump backward from END-IF (line 10) to IF (line 5)
+vim.cmd("normal %")
+assert(vim.api.nvim_win_get_cursor(0)[1] == 5, "% should jump backward from END-IF (line 10) to IF (line 5)")
+
 print("ast_spec: OK")
