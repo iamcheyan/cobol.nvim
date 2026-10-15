@@ -1,0 +1,25 @@
+==================
+OO COBOL Class and Factory
+==================
+
+       IDENTIFICATION DIVISION.
+       CLASS-ID. ACCOUNT.
+       PROCEDURE DIVISION.
+           FACTORY.
+           END FACTORY.
+           OBJECT.
+           END OBJECT.
+
+---
+
+(start
+  (program_definition
+    (identification_division
+      (class_id_header))
+    (procedure_division
+      (factory_header)
+      (END_FACTORY)
+      (period)
+      (object_header)
+      (END_OBJECT)
+      (period))))

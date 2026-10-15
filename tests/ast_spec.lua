@@ -202,11 +202,14 @@ if #parser_paths > 0 then
     assert(grammar_syms[k], "AST start node type '" .. k .. "' does not exist in COBOL tree-sitter grammar")
     assert(grammar_syms[spec.end_node], "AST end node type '" .. spec.end_node .. "' does not exist in COBOL tree-sitter grammar")
   end
-  -- Confirm dialect boundaries: XML, JSON, EXEC SQL, OO COBOL are absent from COBOL 85 grammar
-  assert(not grammar_syms["xml_parse_statement"], "xml_parse_statement must not be claimed unless grammar supports it")
-  assert(not grammar_syms["json_parse_statement"], "json_parse_statement must not be claimed unless grammar supports it")
-  assert(not grammar_syms["exec_sql_statement"], "exec_sql_statement must not be claimed unless grammar supports it")
-  assert(not grammar_syms["class_id_header"], "class_id_header must not be claimed unless grammar supports it")
+  -- Confirm all dialect extension nodes are present
+  assert(grammar_syms["xml_parse_statement"] and grammar_syms["END_XML"], "xml_parse_statement and END_XML must exist in grammar")
+  assert(grammar_syms["json_parse_statement"] and grammar_syms["END_JSON"], "json_parse_statement and END_JSON must exist in grammar")
+  assert(grammar_syms["exec_sql_statement"] and grammar_syms["END_EXEC"], "exec_sql_statement and END_EXEC must exist in grammar")
+  assert(grammar_syms["class_id_header"] and grammar_syms["END_CLASS"], "class_id_header and END_CLASS must exist in grammar")
+  assert(grammar_syms["method_id_header"] and grammar_syms["END_METHOD"], "method_id_header and END_METHOD must exist in grammar")
+  assert(grammar_syms["factory_header"] and grammar_syms["END_FACTORY"], "factory_header and END_FACTORY must exist in grammar")
+  assert(grammar_syms["object_header"] and grammar_syms["END_OBJECT"], "object_header and END_OBJECT must exist in grammar")
 end
 
 -- 10. Test % mapping and textobjects from configured Neovim buffer
@@ -235,5 +238,61 @@ assert(vim.api.nvim_win_get_cursor(0)[1] == 10, "% should jump from IF (line 5) 
 -- Test % jump backward from END-IF (line 10) to IF (line 5)
 vim.cmd("normal %")
 assert(vim.api.nvim_win_get_cursor(0)[1] == 5, "% should jump backward from END-IF (line 10) to IF (line 5)")
+
+-- 11. Test dialect structures in Neovim buffer (XML, JSON, EXEC SQL, OO COBOL)
+vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+  "       IDENTIFICATION DIVISION.",
+  "       PROGRAM-ID. DIALECTTEST.",
+  "       PROCEDURE DIVISION.",
+  "       DIALECT-PARA.",
+  "           XML PARSE DOC-VAR",
+  "               DISPLAY \"XML\"",
+  "           END-XML",
+  "           JSON PARSE JSON-VAR",
+  "               DISPLAY \"JSON\"",
+  "           END-JSON",
+  "           EXEC SQL",
+  "               SELECT * FROM CUSTOMER",
+  "           END-EXEC",
+  "           FACTORY.",
+  "           END FACTORY.",
+  "           OBJECT.",
+  "           END OBJECT.",
+})
+vim.bo.filetype = "cobol"
+
+local dialect_structs = ast.structures(0)
+local dialect_names = {}
+for _, s in ipairs(dialect_structs) do
+  dialect_names[s.name] = s
+end
+
+assert(dialect_names["XML PARSE"], "XML PARSE must be detected in AST structures")
+assert(dialect_names["JSON PARSE"], "JSON PARSE must be detected in AST structures")
+assert(dialect_names["EXEC SQL"], "EXEC SQL must be detected in AST structures")
+assert(dialect_names["FACTORY"], "FACTORY must be detected in AST structures")
+assert(dialect_names["OBJECT"], "OBJECT must be detected in AST structures")
+
+-- Test % jump for EXEC SQL: line 11 (row 10) <-> line 13 (row 12)
+local sql_forward = ast.jump_match(0, 10, 11)
+assert(sql_forward and sql_forward[1] == 12, "% jump forward from EXEC SQL to END-EXEC")
+local sql_back = ast.jump_match(0, 12, 11)
+assert(sql_back and sql_back[1] == 10, "% jump backward from END-EXEC to EXEC SQL")
+
+-- Test % jump for XML PARSE: line 5 (row 4) <-> line 7 (row 6)
+local xml_forward = ast.jump_match(0, 4, 11)
+assert(xml_forward and xml_forward[1] == 6, "% jump forward from XML PARSE to END-XML")
+local xml_back = ast.jump_match(0, 6, 11)
+assert(xml_back and xml_back[1] == 4, "% jump backward from END-XML to XML PARSE")
+
+-- Test % jump for JSON PARSE: line 8 (row 7) <-> line 10 (row 9)
+local json_forward = ast.jump_match(0, 7, 11)
+assert(json_forward and json_forward[1] == 9, "% jump forward from JSON PARSE to END-JSON")
+local json_back = ast.jump_match(0, 9, 11)
+assert(json_back and json_back[1] == 7, "% jump backward from END-JSON to JSON PARSE")
+
+-- Test foldtext for SQL
+local fold_sql = ast.foldtext_for_line(0, 11)
+assert(fold_sql:find("SQL SELECT"), "Foldtext for line 11 should show SQL SELECT: " .. fold_sql)
 
 print("ast_spec: OK")

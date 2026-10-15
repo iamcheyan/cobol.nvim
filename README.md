@@ -121,30 +121,35 @@ In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12;
 
 ### Tree-sitter structural navigation
 
-Choose the parser directory from your Neovim installation's data path. For example, `nvim --headless +'lua print(vim.fn.stdpath("data"))' +qa` prints the base; create its `site/parser/` directory and copy the compiled parser there. Then build the parser and external scanner together:
+Choose the parser directory from your Neovim installation's data path (e.g. `~/.local/share/nvim/site/parser`). You can build and install the extended grammar directly using the bundled reproducible build script:
 
 ```sh
-git clone https://github.com/yutaro-sakamoto/tree-sitter-cobol.git
-git -C tree-sitter-cobol checkout 550020ddf42ef9b718ad897868a9308d2afcda35
-gcc -shared -fPIC -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter \
-  -o /path/to/nvim-data/site/parser/cobol.so \
+./scripts/build_parser.sh
+```
+
+Or compile manually using `gcc`:
+
+```sh
+gcc -O2 -shared -fPIC \
+  -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter \
+  -o ~/.local/share/nvim/site/parser/cobol.so \
   tree-sitter-cobol/src/parser.c tree-sitter-cobol/src/scanner.c
 ```
 
 With the parser installed:
 
-- **Rainbow Closure Matching**: When the cursor is on an opening or closing node, the pair is highlighted using extmarks colored by real nesting depth (Level 1 blue `#61afef`, Level 2 yellow `#e5c07b`, Level 3 red `#e06c75`, Level 4 green `#98c379`, Level 5 purple `#c678dd`, Level 6 cyan `#56b6c2`). Paired structures include IF, EVALUATE, inline PERFORM (UNTIL/VARYING), SEARCH (and SEARCH ALL), READ, WRITE, REWRITE, DELETE, START, STRING, and UNSTRING.
+- **Rainbow Closure Matching**: When the cursor is on an opening or closing node, the pair is highlighted using extmarks colored by real nesting depth (Level 1 blue `#61afef`, Level 2 yellow `#e5c07b`, Level 3 red `#e06c75`, Level 4 green `#98c379`, Level 5 purple `#c678dd`, Level 6 cyan `#56b6c2`). Paired structures include IF, EVALUATE, inline PERFORM (UNTIL/VARYING), SEARCH (and SEARCH ALL), READ, WRITE, REWRITE, DELETE, START, STRING, UNSTRING, XML PARSE, JSON PARSE, EXEC SQL, and OO COBOL (CLASS-ID, METHOD-ID, FACTORY, OBJECT).
 - **AST Breadcrumb**: Tracks the full structural hierarchy (`Division > Section > Paragraph > IF > EVALUATE > WHEN`). Stable documented APIs:
   - Winbar: Automatically integrated when `show_breadcrumbs = true` in config.
   - Statusline: `require("cobol.ast").statusline(bufnr)` returns formatted breadcrumb string.
   - Floating Window: `require("cobol.ast").show_breadcrumb_float()` displays the full chain in an interactive floating popup (`q` or `<Esc>` to dismiss).
-- **Waiting Closures Stack**: `:CobolStructure` or `require("cobol.ast").show_waiting_closures_float()` displays blocks awaiting closure at the cursor position, ordered innermost first (e.g. `END-EVALUATE`, `END-IF`, `END-PERFORM`).
-- **Matching Jump (`%`)**: Press `%` to jump bidirectionally between block starts and their corresponding `END-*` keywords (e.g. `IF` <-> `END-IF`, `EVALUATE` <-> `END-EVALUATE`, `PERFORM` <-> `END-PERFORM`, `SEARCH` <-> `END-SEARCH`, `READ` <-> `END-READ`, `WRITE` <-> `END-WRITE`).
+- **Waiting Closures Stack**: `:CobolStructure` or `require("cobol.ast").show_waiting_closures_float()` displays blocks awaiting closure at the cursor position, ordered innermost first (e.g. `END-EVALUATE`, `END-IF`, `END-PERFORM`, `END-EXEC`).
+- **Matching Jump (`%`)**: Press `%` to jump bidirectionally between block starts and their corresponding `END-*` keywords across all supported structures (e.g. `IF` <-> `END-IF`, `EVALUATE` <-> `END-EVALUATE`, `PERFORM` <-> `END-PERFORM`, `EXEC SQL` <-> `END-EXEC`, `XML PARSE` <-> `END-XML`, `JSON PARSE` <-> `END-JSON`, `CLASS-ID` <-> `END CLASS`).
 - **Tree-sitter Text Objects**:
   - `vaf` / `vif`: Select around / inside `IF ... END-IF`
   - `vae` / `vie`: Select around / inside `EVALUATE ... END-EVALUATE`
   - `vap` / `vip`: Select around / inside `PERFORM ... END-PERFORM`
-- **Enhanced Folding (`foldtext`)**: Folds automatically display structure keywords and condition summaries (e.g. `+-- IF STATUS = "A"`, `+-- EVALUATE TXN-TYPE`, `+-- PERFORM UNTIL EOF`) rather than just raw line counts.
+- **Enhanced Folding (`foldtext`)**: Folds automatically display structure keywords and condition summaries (e.g. `+-- IF STATUS = "A"`, `+-- EVALUATE TXN-TYPE`, `+-- SQL SELECT`, `+-- XML PARSE`) rather than just raw line counts.
 - **Hierarchical Outline (Aerial / Syms)**: Real multi-level parent-child tree:
   - Sections (`INPUT-SECTION`)
   - Paragraphs (`VALIDATE-INPUT`)
@@ -154,22 +159,29 @@ With the parser installed:
   - Subroutine calls (`CALL CUSM001`, unquoted)
   - Embedded SQL statements (`SQL SELECT`, `SQL INSERT`, `SQL UPDATE`, `SQL DELETE`, `SQL CURSOR`, `SQL FETCH`, `SQL OPEN`, `SQL CLOSE`, `SQL COMMIT`, `SQL ROLLBACK`)
 
-### Coverage & Limitations
+### Coverage & Grammar Details
 
-The base parser grammar targets standard COBOL 85 (fixed-format columns 7–72 and free-format). Supported AST closed structures include:
-- `IF ... END-IF`
-- `EVALUATE ... END-EVALUATE`
-- `PERFORM UNTIL / VARYING ... END-PERFORM`
-- `SEARCH / SEARCH ALL ... END-SEARCH`
-- `READ ... END-READ`
-- `WRITE ... END-WRITE`
-- `REWRITE ... END-REWRITE`
-- `DELETE ... END-DELETE`
-- `START ... END-START`
-- `STRING ... END-STRING`
-- `UNSTRING ... END-UNSTRING`
-
-**Dialect Scope & Limitations**: Dialect-specific extensions such as `XML PARSE ... END-XML`, `JSON PARSE ... END-JSON`, and OO COBOL constructs (`CLASS-ID ... END CLASS`, `METHOD-ID ... END METHOD`, `FACTORY ... END FACTORY`, `OBJECT ... END OBJECT`) require AST grammar nodes for those dialect extensions. The plugin's AST engine is equipped with typed handlers for these nodes whenever present in the grammar; on grammars where dialect constructs fall back to error recovery, the plugin degrades gracefully to paragraph outline and standard navigation without crashing or regex-guessing.
+The bundled grammar (`tree-sitter-cobol/`, derived from Yutaro Sakamoto's MIT-licensed grammar) provides first-class AST nodes with corpus tests for:
+- Standard COBOL 85:
+  - `IF ... END-IF`
+  - `EVALUATE ... END-EVALUATE`
+  - `PERFORM UNTIL / VARYING ... END-PERFORM`
+  - `SEARCH / SEARCH ALL ... END-SEARCH`
+  - `READ ... END-READ`
+  - `WRITE ... END-WRITE`
+  - `REWRITE ... END-REWRITE`
+  - `DELETE ... END-DELETE`
+  - `START ... END-START`
+  - `STRING ... END-STRING`
+  - `UNSTRING ... END-UNSTRING`
+- Dialect & Enterprise Extensions:
+  - `XML PARSE ... END-XML`
+  - `JSON PARSE ... END-JSON`
+  - `EXEC SQL ... END-EXEC`
+  - `CLASS-ID ... END CLASS`
+  - `METHOD-ID ... END METHOD`
+  - `FACTORY ... END FACTORY`
+  - `OBJECT ... END OBJECT`
 
 ## GnuCOBOL fixed-format project profile
 

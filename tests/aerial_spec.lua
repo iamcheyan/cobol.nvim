@@ -28,7 +28,13 @@ call setline(1, [
       \ '           WRITE AUDIT-LOG',
       \ '           PERFORM UNTIL EOF-REC',
       \ '               DISPLAY "LOOP"',
-      \ '           END-PERFORM.',
+      \ '           END-PERFORM',
+      \ '           EXEC SQL',
+      \ '               SELECT * FROM CUSTOMER',
+      \ '           END-EXEC',
+      \ '           EXEC SQL',
+      \ '               UPDATE CUSTOMER',
+      \ '           END-EXEC.',
       \ ])
 ]])
 vim.bo.filetype = "cobol"
@@ -123,5 +129,7 @@ assert(child_names["READ ACCOUNT-FILE"], "READ ACCOUNT-FILE must be present unde
 assert(child_names["REWRITE ACCOUNT-REC"], "REWRITE ACCOUNT-REC must be present under UPDATE-ACCOUNT")
 assert(child_names["WRITE AUDIT-LOG"], "WRITE AUDIT-LOG must be present under UPDATE-ACCOUNT")
 assert(child_names["PERFORM UNTIL EOF-REC"], "PERFORM UNTIL EOF-REC must be present under UPDATE-ACCOUNT")
+assert(child_names["SQL SELECT"], "SQL SELECT must be present under UPDATE-ACCOUNT")
+assert(child_names["SQL UPDATE"], "SQL UPDATE must be present under UPDATE-ACCOUNT")
 
 print("aerial_spec: OK")

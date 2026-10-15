@@ -202,30 +202,35 @@
 
 ### Tree-sitter 结构导航
 
-需要先确定当前 Neovim 的数据目录：运行 `nvim --headless +'lua print(vim.fn.stdpath("data"))' +qa` 查看基础路径，在该目录的 `site/parser/` 中放置 `cobol.so` 并确认此目录在 runtimepath 下。编译时须同时包含 `src/parser.c` 和 `src/scanner.c`：
+可直接使用仓库内置的可复现构建脚本编译并安装扩展 grammar（源自 Yutaro Sakamoto 的 MIT 协议 grammar）：
 
 ```sh
-git clone https://github.com/yutaro-sakamoto/tree-sitter-cobol.git
-git -C tree-sitter-cobol checkout 550020ddf42ef9b718ad897868a9308d2afcda35
-gcc -shared -fPIC -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter \
-  -o /path/to/nvim-data/site/parser/cobol.so \
+./scripts/build_parser.sh
+```
+
+或使用 `gcc` 手动编译：
+
+```sh
+gcc -O2 -shared -fPIC \
+  -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter \
+  -o ~/.local/share/nvim/site/parser/cobol.so \
   tree-sitter-cobol/src/parser.c tree-sitter-cobol/src/scanner.c
 ```
 
 安装后：
 
-- **彩虹闭合配对（Rainbow Closure Matching）**：当光标位于结构起始或结束节点时，自动高亮对应的开始与结束关键字，并根据实际嵌套深度应用彩虹颜色（Level 1 蓝色 `#61afef`、Level 2 黄色 `#e5c07b`、Level 3 红色 `#e06c75`、Level 4 绿色 `#98c379`、Level 5 紫色 `#c678dd`、Level 6 青色 `#56b6c2`）。支持所有闭合结构：IF、EVALUATE、PERFORM (UNTIL/VARYING)、SEARCH (及 SEARCH ALL)、READ、WRITE、REWRITE、DELETE、START、STRING、UNSTRING 等。
+- **彩虹闭合配对（Rainbow Closure Matching）**：当光标位于结构起始或结束节点时，自动高亮对应的开始与结束关键字，并根据实际嵌套深度应用彩虹颜色（Level 1 蓝色 `#61afef`、Level 2 黄色 `#e5c07b`、Level 3 红色 `#e06c75`、Level 4 绿色 `#98c379`、Level 5 紫色 `#c678dd`、Level 6 青色 `#56b6c2`）。支持全部闭合结构：IF、EVALUATE、PERFORM (UNTIL/VARYING)、SEARCH (及 SEARCH ALL)、READ、WRITE、REWRITE、DELETE、START、STRING、UNSTRING、XML PARSE、JSON PARSE、EXEC SQL 及 OO COBOL（CLASS-ID、METHOD-ID、FACTORY、OBJECT）。
 - **当前结构链显示（AST Breadcrumb）**：实时计算 Division > Section > Paragraph > IF > EVALUATE > WHEN 完整层级链条。稳定文档化接口：
   - Winbar：配置 `show_breadcrumbs = true` 自动集成。
   - 状态栏：`require("cobol.ast").statusline(bufnr)` 返回面包屑组件。
   - 浮动窗口：`require("cobol.ast").show_breadcrumb_float()` 弹出交互式全层级悬浮窗（按 `q` 或 `<Esc>` 退出）。
-- **待闭合栈（Outstanding Closures Stack）**：运行 `:CobolStructure` 或调用 `require("cobol.ast").show_waiting_closures_float()`，查看当前光标处所有尚未闭合的控制块，实时更新且最内层排在最前（如 `END-EVALUATE`、`END-IF`、`END-PERFORM`）。
-- **匹配跳转（`%`）**：在起始关键字与对应 `END-*` 之间双向互跳（如 `IF` <-> `END-IF`、`EVALUATE` <-> `END-EVALUATE`、`PERFORM` <-> `END-PERFORM`、`SEARCH` <-> `END-SEARCH`、`READ` <-> `END-READ`、`WRITE` <-> `END-WRITE`）。
+- **待闭合栈（Outstanding Closures Stack）**：运行 `:CobolStructure` 或调用 `require("cobol.ast").show_waiting_closures_float()`，查看当前光标处所有尚未闭合的控制块，实时更新且最内层排在最前（如 `END-EVALUATE`、`END-IF`、`END-PERFORM`、`END-EXEC`）。
+- **匹配跳转（`%`）**：在起始关键字与对应 `END-*` 之间双向互跳（如 `IF` <-> `END-IF`、`EVALUATE` <-> `END-EVALUATE`、`PERFORM` <-> `END-PERFORM`、`EXEC SQL` <-> `END-EXEC`、`XML PARSE` <-> `END-XML`、`JSON PARSE` <-> `END-JSON`、`CLASS-ID` <-> `END CLASS` 等）。
 - **Tree-sitter 文本对象（Text Objects）**：
   - `vaf` / `vif`：选中外层 / 内部 `IF ... END-IF`
   - `vae` / `vie`：选中外层 / 内部 `EVALUATE ... END-EVALUATE`
   - `vap` / `vip`：选中外层 / 内部 `PERFORM ... END-PERFORM`
-- **折叠优化（`foldtext`）**：折叠摘要显示结构关键词与条件摘要（如 `+-- IF STATUS = "A"`、`+-- EVALUATE TXN-TYPE`、`+-- PERFORM UNTIL EOF`），替代仅显示行数的传统显示。
+- **折叠优化（`foldtext`）**：折叠摘要显示结构关键词与条件摘要（如 `+-- IF STATUS = "A"`、`+-- EVALUATE TXN-TYPE`、`+-- SQL SELECT`、`+-- XML PARSE`），替代仅显示行数的传统显示。
 - **增强大纲（Aerial / Syms Outline）**：按真实父子嵌套关系组织多级树状结构，包含：
   - Section（如 `INPUT-SECTION`，去除 `SECTION` 后缀）
   - Paragraph（如 `VALIDATE-INPUT`）
@@ -235,22 +240,29 @@ gcc -shared -fPIC -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter 
   - 子程序调用（`CALL CUSM001`，自动去除字符串引号）
   - 嵌入式 SQL 语句（`SQL SELECT`、`SQL INSERT`、`SQL UPDATE`、`SQL DELETE`、`SQL CURSOR`、`SQL FETCH`、`SQL OPEN`、`SQL CLOSE`、`SQL COMMIT`、`SQL ROLLBACK`）
 
-### 覆盖范围与限制
+### 覆盖范围与 Grammar 详情
 
-基础 parser grammar 面向标准 COBOL 85（固定格式 7–72 列及自由格式）。支持的 AST 闭合结构包括：
-- `IF ... END-IF`
-- `EVALUATE ... END-EVALUATE`
-- `PERFORM UNTIL / VARYING ... END-PERFORM`
-- `SEARCH / SEARCH ALL ... END-SEARCH`
-- `READ ... END-READ`
-- `WRITE ... END-WRITE`
-- `REWRITE ... END-REWRITE`
-- `DELETE ... END-DELETE`
-- `START ... END-START`
-- `STRING ... END-STRING`
-- `UNSTRING ... END-UNSTRING`
-
-**方言范围与限制说明**：方言扩展结构（如 `XML PARSE ... END-XML`、`JSON PARSE ... END-JSON`、以及 OO COBOL 的 `CLASS-ID ... END CLASS`、`METHOD-ID ... END METHOD`、`FACTORY ... END FACTORY`、`OBJECT ... END OBJECT`）依赖 grammar 中具备对应 AST 节点定义。本插件 AST 引擎已内置上述类型节点的支持；若所用 grammar 未包含对应规则而回退为错误节点，插件将平滑降级至段落大纲与基础导航，不崩溃亦不采用纯正则猜测。
+内置 extended grammar（位于 `tree-sitter-cobol/`，附带完整测试 corpus）提供原生 AST 节点支持：
+- 标准 COBOL 85 结构：
+  - `IF ... END-IF`
+  - `EVALUATE ... END-EVALUATE`
+  - `PERFORM UNTIL / VARYING ... END-PERFORM`
+  - `SEARCH / SEARCH ALL ... END-SEARCH`
+  - `READ ... END-READ`
+  - `WRITE ... END-WRITE`
+  - `REWRITE ... END-REWRITE`
+  - `DELETE ... END-DELETE`
+  - `START ... END-START`
+  - `STRING ... END-STRING`
+  - `UNSTRING ... END-UNSTRING`
+- 方言与企业级扩展结构：
+  - `XML PARSE ... END-XML`
+  - `JSON PARSE ... END-JSON`
+  - `EXEC SQL ... END-EXEC`
+  - `CLASS-ID ... END CLASS`
+  - `METHOD-ID ... END METHOD`
+  - `FACTORY ... END FACTORY`
+  - `OBJECT ... END OBJECT`
 
 ### 5. 数据名和关键字补全
 

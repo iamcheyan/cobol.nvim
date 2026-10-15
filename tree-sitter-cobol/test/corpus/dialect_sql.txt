@@ -1,0 +1,23 @@
+==================
+EXEC SQL
+==================
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. SQLTEST.
+       PROCEDURE DIVISION.
+           EXEC SQL
+               SELECT * FROM CUSTOMER
+           END-EXEC.
+
+---
+
+(start
+  (program_definition
+    (identification_division
+      (program_name))
+    (procedure_division
+      (exec_sql_statement
+        (WORD)
+        (WORD))
+      (END_EXEC)
+      (period))))

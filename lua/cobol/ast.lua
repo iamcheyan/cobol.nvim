@@ -15,6 +15,13 @@ local kinds = {
   start_statement = { name = "START", ending = "END-START", end_node = "END_START" },
   string_statement = { name = "STRING", ending = "END-STRING", end_node = "END_STRING" },
   unstring_statement = { name = "UNSTRING", ending = "END-UNSTRING", end_node = "END_UNSTRING" },
+  xml_parse_statement = { name = "XML PARSE", ending = "END-XML", end_node = "END_XML" },
+  json_parse_statement = { name = "JSON PARSE", ending = "END-JSON", end_node = "END_JSON" },
+  exec_sql_statement = { name = "EXEC SQL", ending = "END-EXEC", end_node = "END_EXEC" },
+  class_id_header = { name = "CLASS-ID", ending = "END CLASS", end_node = "END_CLASS" },
+  method_id_header = { name = "METHOD-ID", ending = "END METHOD", end_node = "END_METHOD" },
+  factory_header = { name = "FACTORY", ending = "END FACTORY", end_node = "END_FACTORY" },
+  object_header = { name = "OBJECT", ending = "END OBJECT", end_node = "END_OBJECT" },
 }
 M.kinds = kinds
 
@@ -57,6 +64,18 @@ local function format_structure_label(node, bufnr, default_name)
   elseif default_name == "WHEN" then
     local clause = raw:match("^(WHEN%s+.-)%s+DISPLAY") or raw:match("^(WHEN%s+.-)%s+MOVE") or raw
     return clean_label(clause)
+  elseif default_name == "EXEC SQL" then
+    local upper = raw:upper()
+    local act = upper:match("EXEC%s+SQL%s+([A-Z]+)") or "EXEC"
+    for _, known in ipairs({ "SELECT", "INSERT", "UPDATE", "DELETE", "CURSOR", "FETCH", "OPEN", "CLOSE", "COMMIT", "ROLLBACK" }) do
+      if act:find(known, 1, true) then
+        act = known
+        break
+      end
+    end
+    return (act == "SELECT" or act == "UPDATE" or act == "INSERT" or act == "DELETE")
+      and ("SQL " .. act)
+      or (act == "EXEC" and "EXEC SQL" or ("SQL " .. act))
   end
   return raw
 end

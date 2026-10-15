@@ -1,0 +1,24 @@
+==================
+XML PARSE
+==================
+
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. XMLTEST.
+       PROCEDURE DIVISION.
+           XML PARSE DOC-VAR
+               DISPLAY "PARSED"
+           END-XML.
+
+---
+
+(start
+  (program_definition
+    (identification_division
+      (program_name))
+    (procedure_division
+      (xml_parse_statement
+        document: (WORD))
+      (display_statement
+        (string))
+      (END_XML)
+      (period))))

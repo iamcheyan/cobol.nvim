@@ -138,6 +138,46 @@ option. COPY ... REPLACING is supported for identifying the Copybook name.
 The same configured paths are passed to GnuCOBOL as -I include directories.
 
 ==============================================================================
+TREE-SITTER NAVIGATION                                      *cobol-treesitter*
+
+The bundled Tree-sitter grammar (located at tree-sitter-cobol/) provides
+comprehensive AST support across both COBOL 85 standard constructs and modern
+dialect extensions. Install the parser with: >sh
+    ./scripts/build_parser.sh
+<
+Supported structures (18 paired blocks):
+    COBOL 85:
+      IF ... END-IF
+      EVALUATE ... END-EVALUATE
+      PERFORM ... END-PERFORM (inline UNTIL / VARYING)
+      SEARCH ... END-SEARCH
+      READ ... END-READ
+      WRITE ... END-WRITE
+      REWRITE ... END-REWRITE
+      DELETE ... END-DELETE
+      START ... END-START
+      STRING ... END-STRING
+      UNSTRING ... END-UNSTRING
+    Dialects & Enterprise:
+      XML PARSE ... END-XML
+      JSON PARSE ... END-JSON
+      EXEC SQL ... END-EXEC
+      CLASS-ID ... END CLASS
+      METHOD-ID ... END METHOD
+      FACTORY ... END FACTORY
+      OBJECT ... END OBJECT
+
+Features:
+    %                       Bidirectional jump between block start and END-*
+    vaf / vif               Select around / inside IF ... END-IF
+    vae / vie               Select around / inside EVALUATE ... END-EVALUATE
+    vap / vip               Select around / inside PERFORM ... END-PERFORM
+    :CobolStructure         Display waiting closures stack (innermost first)
+    Rainbow Highlights      Keyword highlighting matching real nesting depth
+    Foldtext                Structure and condition summary in folds
+    Breadcrumbs             Division > Section > Paragraph > IF > EVALUATE
+
+==============================================================================
 COMPLETION AND OUTLINE                                         *cobol-completion*
 
 When blink.cmp is available and completion.enable is true, a COBOL source is
