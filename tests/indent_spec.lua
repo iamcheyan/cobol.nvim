@@ -58,4 +58,26 @@ assert(#reference > 72 and indent.compute({ "       PROCEDURE DIVISION.", refere
 assert(indent.compute({ "       PROCEDURE DIVISION.", "      * KEEP COMMENT" }, 2) == -1,
   "fixed-format comment lines should keep their indicator column")
 
+local original_indentkeys = vim.bo[0].indentkeys
+local indent_buffer = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_set_current_buf(indent_buffer)
+vim.bo[indent_buffer].indentkeys = ""
+indent.setup(indent_buffer)
+assert(vim.bo[indent_buffer].indentkeys == "", "indent setup must preserve an explicit indentkeys opt-out")
+vim.bo[indent_buffer].indentkeys = "*<Return>,0=END-IF"
+indent.setup(indent_buffer)
+assert(vim.bo[indent_buffer].indentkeys:match("%*<Return>"), "indent setup must preserve existing custom indent keys")
+assert(vim.bo[indent_buffer].indentkeys:match("0=END%-EVALUATE"), "indent setup should add missing COBOL close keys")
+assert(not vim.bo[indent_buffer].indentkeys:match("^o,") and not vim.bo[indent_buffer].indentkeys:match(",o,"),
+  "indent setup must remove o/O triggers that duplicate custom line-open indentation")
+vim.bo[indent_buffer].indentkeys = "o,O,*<Return>,0=END-IF"
+indent.setup(indent_buffer)
+assert(vim.bo[indent_buffer].indentkeys:match("%*<Return>"), "indent setup must preserve other existing custom indent keys")
+assert(not vim.bo[indent_buffer].indentkeys:match("[,^]o[, ]") and not vim.bo[indent_buffer].indentkeys:match("[,^]O[, ]"),
+  "indent setup must remove both open-line triggers from filetype defaults")
+local eof_keys = indent.extend_indentkeys("o,O,*,0=END-IF")
+assert(eof_keys == "*,0=END-IF,0=END-EVALUATE,0=END-PERFORM,0=END-READ,0=END-SEARCH,0=END-WRITE,0=END-EXEC,0=ELSE,0=WHEN",
+  "default indentkeys should retain other rules, add COBOL close triggers, and omit o/O")
+vim.bo[0].indentkeys = original_indentkeys
+
 print("indent_spec: OK")

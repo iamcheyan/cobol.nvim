@@ -177,9 +177,46 @@ function M.get_indent(lnum)
   return M.compute(lines, lnum)
 end
 
+local cobol_indentkeys = {
+  "0=END-IF",
+  "0=END-EVALUATE",
+  "0=END-PERFORM",
+  "0=END-READ",
+  "0=END-SEARCH",
+  "0=END-WRITE",
+  "0=END-EXEC",
+  "0=ELSE",
+  "0=WHEN",
+}
+
+local function extend_indentkeys(existing)
+  -- An empty value is an intentional opt-out: some configs handle o/O
+  -- themselves and must not have indentexpr run a second time afterward.
+  if existing == "" then return existing end
+
+  local keys, seen = {}, {}
+  for key in existing:gmatch("[^,]+") do
+    if key ~= "o" and key ~= "O" and not seen[key] then
+      keys[#keys + 1] = key
+      seen[key] = true
+    end
+  end
+  for _, key in ipairs(cobol_indentkeys) do
+    if not seen[key] then
+      keys[#keys + 1] = key
+      seen[key] = true
+    end
+  end
+  return table.concat(keys, ",")
+end
+
 function M.setup(bufnr)
   vim.bo[bufnr].indentexpr = "v:lua.require'cobol.indent'.get_indent(v:lnum)"
-  vim.bo[bufnr].indentkeys = "o,O,0=END-IF,0=END-EVALUATE,0=END-PERFORM,0=END-READ,0=END-SEARCH,0=END-WRITE,0=END-EXEC,0=ELSE,0=WHEN"
+  vim.bo[bufnr].indentkeys = extend_indentkeys(vim.bo[bufnr].indentkeys)
+end
+
+function M.extend_indentkeys(existing)
+  return extend_indentkeys(existing)
 end
 
 return M

@@ -85,6 +85,9 @@ vim.bo[cobol_buf].filetype = "cobol"
 vim.api.nvim_set_current_buf(cobol_buf)
 cobol.attach(cobol_buf)
 assert(vim.bo[cobol_buf].indentexpr:match("cobol%.indent"), "COBOL buffers should use the fixed-format indent expression")
+local indentkeys = vim.split(vim.bo[cobol_buf].indentkeys, ",", { trimempty = true })
+assert(not vim.tbl_contains(indentkeys, "o") and not vim.tbl_contains(indentkeys, "O"),
+  "COBOL indent setup must not reindent lines opened by the user's o/O mappings")
 local gcc_map = vim.fn.maparg("gcc", "n", false, true)
 assert(gcc_map.buffer == 1, "COBOL gcc mapping should be buffer-local")
 assert(gcc_map.desc == "COBOL: Toggle Col 7 Comment (*)", "COBOL gcc should use fixed-format comments")
