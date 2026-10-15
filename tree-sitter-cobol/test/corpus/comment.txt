@@ -8,4 +8,5 @@ aaaaaa program-id. a.  ,,, ;;;                                          aaaaa
 (start
   (program_definition
     (identification_division
-      (program_name))))
+      (program_name)))
+  (comment))
