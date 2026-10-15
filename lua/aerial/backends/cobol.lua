@@ -2,6 +2,7 @@ local backend_util = require("aerial.backends.util")
 local backends = require("aerial.backends")
 local config = require("aerial.config")
 local util = require("aerial.util")
+local ast = require("cobol.ast")
 
 local M = {}
 
@@ -285,8 +286,57 @@ M.fetch_symbols_sync = function(bufnr)
     end
   end
 
+  local ast_items = ast.aerial_items(bufnr)
+  if #ast_items > 0 then
+    local procedure
+    for _, division in ipairs(items) do
+      if division.name and division.name:find("PROCEDURE DIVISION", 1, true) then procedure = division; break end
+    end
+    if procedure then
+      for _, symbol in ipairs(ast_items) do
+        local parent, stack = procedure, { procedure }
+        while #stack > 0 do
+          local candidate = table.remove(stack)
+          if candidate ~= procedure and candidate.lnum <= symbol.lnum and candidate.end_lnum >= symbol.end_lnum then
+            parent = candidate
+          end
+          for _, child in ipairs(candidate.children or {}) do stack[#stack + 1] = child end
+        end
+        parent.children = parent.children or {}
+        parent.children[#parent.children + 1] = symbol
+      end
+    end
+  end
+
   set_end_range(bufnr, items)
   backends.set_symbols(bufnr, items, { backend_name = "cobol", lang = "cobol" })
+end
+
+function M.fetch_ast_symbols(bufnr)
+  bufnr = bufnr or 0
+  local lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, true)
+  local procedure_idx
+  for i, line in ipairs(lines) do
+    if line:upper():match("^%s*PROCEDURE%s+DIVISION") then procedure_idx = i; break end
+  end
+  if not procedure_idx then return {} end
+  local div = { name = "PROCEDURE DIVISION", kind = "Module", lnum = procedure_idx, col = 0, children = {} }
+  for i, line in ipairs(lines) do
+    local sec_name = line:upper():match("^%s*([A-Z0-9%-]+%s+SECTION)%s*[%s%.]")
+    if sec_name and i > procedure_idx then
+      div.children[#div.children + 1] = { name = sec_name, kind = "Interface", lnum = i,
+        col = find_col(line, sec_name), children = {} }
+    end
+  end
+  for _, item in ipairs(ast.aerial_items(bufnr)) do
+    local parent = div
+    for _, candidate in ipairs(div.children) do
+      if candidate.lnum <= item.lnum then parent = candidate end
+    end
+    parent.children[#parent.children + 1] = item
+  end
+  div.end_lnum = #lines
+  return { div }
 end
 
 M.fetch_symbols = M.fetch_symbols_sync

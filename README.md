@@ -18,14 +18,14 @@ The screenshot shows the main workflow: the Aerial structure outline, fixed-form
 
 `cobol.nvim` is useful for beginners learning fixed-format COBOL, developers maintaining `.cob`, `.cbl`, or `.cobol` programs, and projects that use copybooks and traditional Division/Section/Paragraph structure.
 
-The core features work without Aerial. Aerial is an optional Neovim plugin that provides the sidebar outline; `cobol.nvim` supplies the COBOL-specific backend that feeds it.
+The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Aerial displays these symbols in a searchable Neovim sidebar; without Aerial, all other navigation features remain available.
 
 ## Features
 
 | Area | What it provides | Why it helps |
 | --- | --- | --- |
 | Fixed-format layout | Guides for columns 7, 8, 12, and 73; overflow highlighting; column jumps | Makes COBOL's source areas visible while you edit |
-| Structure and navigation | Winbar breadcrumbs, folding, `gd`, `gf`, and `K` | Helps you move through Divisions, paragraphs, fields, and copybooks |
+| Structure and navigation | AST breadcrumbs, nested-block highlighting, `%`, `vaf`/`vif`/`vae`/`vie`/`vap`/`vip`, folding, `gd`, `gf`, and `K` | Navigate COBOL control flow by syntax-tree ranges |
 | Data layout | PIC and record-size estimates, including `OCCURS` and `REDEFINES` | Gives beginners a practical view of record storage |
 | Completion | COBOL keywords, verbs, clauses, snippets, data names, paragraphs, and copybooks | Reduces typing and helps you discover the vocabulary and structure of a program |
 | Context information | Format, source area, breadcrumb, current PIC, and record size | Keeps the most useful COBOL context visible while you move through a file |
@@ -46,7 +46,6 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
-  "iamcheyan/cobol.nvim",
   ft = { "cobol", "cbl", "cob" },
   opts = {},
 }
@@ -66,15 +65,13 @@ To add the optional Aerial code-structure sidebar, install Aerial and enable the
 }
 ```
 
-The plugin does not install `cobc` for you. Install GnuCOBOL separately with your operating system's package manager or build instructions.
-
+The repository name for this plugin belongs in the local lazy.nvim spec, alongside these options.
 ## Configuration
 
 The defaults are suitable for a small project. A project-specific setup can look like this:
 
 ```lua
 {
-  "iamcheyan/cobol.nvim",
   ft = { "cobol", "cbl", "cob" },
   opts = {
     project_root = vim.fn.expand("~/src/my-cobol-project"),
@@ -121,6 +118,27 @@ In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12;
 - `K` / `:CobolPreview`: preview the declaration and its source file in a floating window.
 - `<C-o>`: return through Neovim's jump list.
 - `<leader>cs`: toggle the optional Aerial Outline sidebar.
+
+### Tree-sitter structural navigation
+
+Choose the parser directory from your Neovim installation's data path. For example, `nvim --headless +'lua print(vim.fn.stdpath("data"))' +qa` prints the base; create its `site/parser/` directory and copy the compiled parser there. Then build the parser and external scanner together:
+
+```sh
+git clone https://github.com/yutaro-sakamoto/tree-sitter-cobol.git
+git -C tree-sitter-cobol checkout 550020ddf42ef9b718ad897868a9308d2afcda35
+gcc -shared -fPIC -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter \
+  -o /path/to/nvim-data/site/parser/cobol.so \
+  tree-sitter-cobol/src/parser.c tree-sitter-cobol/src/scanner.c
+```
+
+With the parser installed:
+
+- `%` jumps between matched block starts and `END-*` nodes. Cursor-sensitive highlights use nesting depth for IF, EVALUATE, inline PERFORM, SEARCH, READ, WRITE, REWRITE, DELETE, START, STRING, and UNSTRING structures represented by the grammar.
+- The Winbar adds syntax-tree structure to the existing COBOL context. `:CobolStructure` displays closures still outstanding at the cursor, innermost first.
+- `vaf`/`vif`, `vae`/`vie`, and `vap`/`vip` select around/inside IF, EVALUATE, and inline PERFORM syntax ranges.
+- Aerial adds the parsed control blocks beneath the current Division/Section.
+
+This grammar targets COBOL 85. It does not consistently represent OO COBOL, embedded SQL, JSON/XML parser constructs, or other dialect extensions; those are outside the AST feature set. Without a usable parser, AST-specific actions stay inactive and the existing paragraph outline/navigation continue to work.
 
 The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Aerial displays these symbols in a searchable Neovim sidebar; without Aerial, all other navigation features remain available.
 
@@ -222,10 +240,10 @@ Unsaved buffer contents are passed to the compiler through standard input when p
 
 ## Practice repository
 
-The companion repository [iamcheyan/cobol](https://github.com/iamcheyan/cobol) is a small, runnable COBOL workshop. It is not required by the plugin, but it provides examples for practicing every feature described here.
+The companion COBOL workshop repository is small and runnable. It is optional, and provides examples for practicing the features described here.
 
 ```bash
-git clone https://github.com/iamcheyan/cobol.git ~/cobol-practice
+git clone <companion-repository-url> ~/cobol-practice
 cd ~/cobol-practice
 make check
 nvim INPUTCSV.COB

@@ -25,5 +25,8 @@ assert(#symbols == 3, "Aerial backend should expose DATA, record, and procedure 
 assert(symbols[1].name == "IDENTIFICATION DIVISION")
 assert(symbols[2].name == "DATA DIVISION")
 assert(symbols[3].name == "PROCEDURE DIVISION")
+if vim.treesitter.language.add and #require("cobol.ast").aerial_items(0) > 0 then
+  assert(symbols[3].children and #symbols[3].children > 0, "Procedure Division should contain AST structure symbols")
+end
 
 print("aerial_spec: OK")

@@ -23,7 +23,6 @@
 
 ~~~lua
 {
-  "iamcheyan/cobol.nvim",
   ft = { "cobol", "cbl", "cob" },
   opts = {},
 }
@@ -201,7 +200,26 @@
 
 搜索目录来自 `.cobol.json` 的 `copybook_paths` 或插件设置。`COPY ... REPLACING` 会把 Copybook 名称与替换文本分开处理。
 
-选装 Aerial 可显示 Division、Section、Paragraph、文件描述和 01 记录的大纲。Aerial 是另一个 Neovim 插件；没有它时 `gd`、`gf`、`K` 等导航仍然可用。
+### Tree-sitter 结构导航
+
+需要先确定当前 Neovim 的数据目录：运行 `nvim --headless +'lua print(vim.fn.stdpath("data"))' +qa` 查看基础路径，在该目录的 `site/parser/` 中放置 `cobol.so` 并确认此目录在 runtimepath 下。编译时须同时包含 `src/parser.c` 和 `src/scanner.c`：
+
+```sh
+git clone https://github.com/yutaro-sakamoto/tree-sitter-cobol.git
+git -C tree-sitter-cobol checkout 550020ddf42ef9b718ad897868a9308d2afcda35
+gcc -shared -fPIC -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter \
+  -o /path/to/nvim-data/site/parser/cobol.so \
+  tree-sitter-cobol/src/parser.c tree-sitter-cobol/src/scanner.c
+```
+
+安装后：
+
+- `%` 在 AST 配对的结构起始与 `END-*` 之间跳转；光标所在结构的开始/结束关键字按嵌套层级着色。grammar 表示的 IF、EVALUATE、inline PERFORM、SEARCH、READ、WRITE、REWRITE、DELETE、START、STRING、UNSTRING 均可用。
+- Winbar 显示语法树层级；运行 `:CobolStructure` 查看光标所在块尚待闭合的结构，最内层排在前面。
+- `vaf`/`vif`、`vae`/`vie`、`vap`/`vip` 分别选择 IF、EVALUATE、inline PERFORM 的外围/内部 AST 范围。
+- Aerial 大纲会把解析出的控制结构放在现有 Division/Section 下。
+
+该上游 grammar 面向 COBOL 85，不能一致地表达 OO COBOL、嵌入式 SQL、JSON/XML parser 结构和其它方言扩展，因此这些扩展不属于当前 AST 功能范围。未安装 parser 或源代码无法解析时，AST 功能不猜测结构；原有段落大纲和其它导航仍可使用。
 
 ### 5. 数据名和关键字补全
 
@@ -295,7 +313,6 @@ lazy.nvim 的 `opts` 可覆盖默认值：
 
 ~~~lua
 {
-  "iamcheyan/cobol.nvim",
   ft = { "cobol", "cbl", "cob" },
   opts = {
     source_format = "fixed",
@@ -317,6 +334,8 @@ lazy.nvim 的 `opts` 可覆盖默认值：
   },
 }
 ~~~
+
+项目名在本机 lazy.nvim spec 中配置，并与该仓库的 GitHub 地址对应。
 
 默认还启用列标尺、Winbar、面包屑、数据级别高亮、PIC/记录大小提示和第 72 列越界提示。`columns` 默认是 `{ 7, 8, 12, 73 }`。项目配置比全局选项更适合团队共享；不要把机器专属绝对路径提交到项目文件。
 

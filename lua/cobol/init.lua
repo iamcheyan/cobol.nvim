@@ -368,6 +368,8 @@ function M.get_winbar()
   if M.config.show_breadcrumbs then
     local cursor_row = vim.api.nvim_win_get_cursor(win_id)[1]
     crumb, hl_group = M.get_breadcrumb(bufnr, cursor_row)
+    local state = require("cobol.ast").update(bufnr, win_id)
+    if state and state.breadcrumb ~= "" then crumb = state.breadcrumb end
   end
   if not crumb or crumb == "" then
     return ""
@@ -972,7 +974,17 @@ function M.setup(opts)
 
   require("cobol.commands").setup()
 
-  -- 针对 COBOL 文件类型的自动命令
+  -- COBOL AST structure integrations
+  vim.api.nvim_create_user_command("CobolStructure", function()
+    local state = require("cobol.ast").update(0, vim.api.nvim_get_current_win())
+    if not state then
+      vim.notify("COBOL Tree-sitter parser is unavailable; install tree-sitter-cobol", vim.log.levels.WARN)
+      return
+    end
+    local message = #state.waiting > 0 and table.concat(state.waiting, "\n") or "No open block at cursor"
+    vim.notify("Waiting Closures\n" .. message, vim.log.levels.INFO)
+  end, { desc = "Show active COBOL AST breadcrumb and waiting closures" })
+
   local group = vim.api.nvim_create_augroup("CobolNvimGroup", { clear = true })
 
   vim.api.nvim_create_autocmd({ "FileType" }, {
@@ -1020,6 +1032,7 @@ function M.setup(opts)
     callback = function(ev)
       local ft = vim.bo[ev.buf].filetype
       if ft == "cobol" or ft == "cbl" or ft == "cob" then
+        pcall(require("cobol.ast").update, ev.buf, vim.api.nvim_get_current_win())
         local win_id = vim.api.nvim_get_current_win()
         M.update_hierarchy_hint(ev.buf, win_id)
         if M.config.show_pic_size then
@@ -1084,6 +1097,7 @@ function M.setup(opts)
     group = group,
     callback = function()
       M.setup_highlights()
+      require("cobol.ast").setup_highlights()
     end,
   })
 

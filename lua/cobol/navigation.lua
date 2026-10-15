@@ -2,8 +2,8 @@
 -- cobol.nvim: Code definition jumping (gd), Copybook navigation (gf), and hover preview (K)
 
 local M = {}
+local ast = require("cobol.ast")
 
--- 默认 Copybook 搜索相对路径
 M.default_copybook_paths = {
   ".",
   "./cpy",
@@ -559,6 +559,25 @@ function M.hover_preview()
 end
 
 -- 挂载按键映射到当前 buffer
+local function ast_motion()
+  local pos = vim.api.nvim_win_get_cursor(0)
+  local target = ast.jump_match(0, pos[1] - 1, pos[2])
+  if not target then return false end
+  vim.api.nvim_win_set_cursor(0, { target[1] + 1, target[2] })
+  return true
+end
+
+local function ast_textobject(kind, inner)
+  return function()
+    local pos = vim.api.nvim_win_get_cursor(0)
+    local range = ast.textobject(0, pos[1] - 1, pos[2], kind, inner)
+    if not range then return end
+    vim.api.nvim_win_set_cursor(0, { range[1] + 1, range[2] })
+    vim.cmd("normal! v")
+    vim.api.nvim_win_set_cursor(0, { range[3] + 1, math.max(range[2], range[4] - 1) })
+  end
+end
+
 function M.setup_keymaps(bufnr)
   local map = function(mode, lhs, rhs, desc)
     vim.keymap.set(mode, lhs, rhs, { buffer = bufnr, silent = true, desc = desc })
@@ -567,6 +586,15 @@ function M.setup_keymaps(bufnr)
   map("n", "gd", function() M.goto_definition() end, "COBOL: Jump to Definition (Paragraph/Data)")
   map("n", "gf", function() M.goto_copybook() end, "COBOL: Open Copybook File")
   map("n", "K", function() M.hover_preview() end, "COBOL: Preview Definition / Copybook")
+  map("n", "%", function()
+    if not ast_motion() then vim.cmd("normal! %") end
+  end, "COBOL: Jump to matching structure")
+  for _, pair in ipairs({ { "if", "IF" }, { "e", "EVALUATE" }, { "p", "PERFORM" } }) do
+    map("x", "a" .. pair[1], ast_textobject(pair[2], false), "COBOL: Select around " .. pair[2] .. " AST")
+    map("o", "a" .. pair[1], ast_textobject(pair[2], false), "COBOL: Select around " .. pair[2] .. " AST")
+    map("x", "i" .. pair[1], ast_textobject(pair[2], true), "COBOL: Select inside " .. pair[2] .. " AST")
+    map("o", "i" .. pair[1], ast_textobject(pair[2], true), "COBOL: Select inside " .. pair[2] .. " AST")
+  end
 end
 
 return M
