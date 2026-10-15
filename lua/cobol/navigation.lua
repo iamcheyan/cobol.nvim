@@ -589,7 +589,7 @@ function M.setup_keymaps(bufnr)
   map("n", "%", function()
     if not ast_motion() then vim.cmd("normal! %") end
   end, "COBOL: Jump to matching structure")
-  for _, pair in ipairs({ { "if", "IF" }, { "e", "EVALUATE" }, { "p", "PERFORM" } }) do
+  for _, pair in ipairs({ { "f", "IF" }, { "if", "IF" }, { "e", "EVALUATE" }, { "p", "PERFORM" } }) do
     map("x", "a" .. pair[1], ast_textobject(pair[2], false), "COBOL: Select around " .. pair[2] .. " AST")
     map("o", "a" .. pair[1], ast_textobject(pair[2], false), "COBOL: Select around " .. pair[2] .. " AST")
     map("x", "i" .. pair[1], ast_textobject(pair[2], true), "COBOL: Select inside " .. pair[2] .. " AST")

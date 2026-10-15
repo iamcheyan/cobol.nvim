@@ -201,6 +201,7 @@ local function setup_folding(bufnr)
   end
   vim.wo[win].foldmethod = "expr"
   vim.wo[win].foldexpr = "v:lua.require('cobol.folding').foldexpr(v:lnum)"
+  vim.wo[win].foldtext = "v:lua.require('cobol.folding').foldtext()"
   vim.wo[win].foldenable = true
 end
 

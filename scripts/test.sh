@@ -7,9 +7,15 @@ for test_file in "$root_dir"/tests/*_spec.lua; do
     parser_paths="$(nvim --headless -u NONE +'lua io.write(table.concat(vim.api.nvim_get_runtime_file("parser/cobol.so", false), ":"))' +qa)"
     if [[ -n "$parser_paths" ]]; then
       parser_dir="$(dirname "$parser_paths")"
+      extra_rtp=()
+      aerial_dir="${XDG_DATA_HOME:-$HOME/.local/share}/nvim/lazy/aerial.nvim"
+      if [[ -d "$aerial_dir" ]]; then
+        extra_rtp+=(--cmd "set rtp^=$aerial_dir")
+      fi
       nvim --headless -u NONE \
         --cmd "set rtp^=$root_dir" \
         --cmd "set rtp^=$parser_dir/.." \
+        "${extra_rtp[@]}" \
         -l "$test_file"
       continue
     fi

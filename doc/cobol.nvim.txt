@@ -13,6 +13,7 @@ CONTENTS                                                            cobol.nvim
   Setup                         |cobol-setup|
   Fixed-format source           |cobol-fixed-format|
   Navigation                    |cobol-navigation|
+  Tree-sitter structural        |cobol-treesitter|
   Completion and outline        |cobol-completion|
   PIC and record layout         |cobol-calculator|
   Diagnostics and build         |cobol-diagnostics|
@@ -21,12 +22,59 @@ CONTENTS                                                            cobol.nvim
   Configuration                 |cobol-configuration|
 
 ==============================================================================
+TREE-SITTER STRUCTURAL NAVIGATION                           *cobol-treesitter*
+
+When the compiled tree-sitter-cobol parser (cobol.so) is installed in Neovim's
+runtimepath (e.g., site/parser/cobol.so), cobol.nvim provides advanced AST
+structural navigation:
+
+Rainbow Closure Matching:
+  When the cursor rests on a block opening or closing keyword, the matched
+  pair is highlighted with extmarks colored by real nesting depth:
+  Level 1: Blue (#61afef)     Level 2: Yellow (#e5c07b)
+  Level 3: Red (#e06c75)      Level 4: Green (#98c379)
+  Level 5: Purple (#c678dd)   Level 6: Cyan (#56b6c2)
+  Supported closed structures include IF, EVALUATE, inline PERFORM (UNTIL
+  and VARYING), SEARCH (and SEARCH ALL), READ, WRITE, REWRITE, DELETE, START,
+  STRING, and UNSTRING.
+
+AST Breadcrumb:
+  Real-time hierarchical chain (Division > Section > Paragraph > IF > EVALUATE
+  > WHEN). Exposed through:
+  - Winbar: Built-in when show_breadcrumbs is enabled.
+  - Statusline: require("cobol.ast").statusline(bufnr)
+  - Floating Window: require("cobol.ast").show_breadcrumb_float()
+
+Waiting Closures Stack:
+  :CobolStructure or require("cobol.ast").show_waiting_closures_float()
+  displays blocks awaiting closure at the cursor position, innermost first
+  (e.g., END-EVALUATE, END-IF, END-PERFORM).
+
+Matching Jump (%):
+  Normal mode % jumps bidirectionally between block starts and corresponding
+  END-* statements (IF <-> END-IF, EVALUATE <-> END-EVALUATE, PERFORM <->
+  END-PERFORM, SEARCH <-> END-SEARCH, READ <-> END-READ, WRITE <-> END-WRITE).
+
+Text Objects:
+  vaf / vif   Select around / inside IF ... END-IF
+  vae / vie   Select around / inside EVALUATE ... END-EVALUATE
+  vap / vip   Select around / inside PERFORM ... END-PERFORM
+
+Enhanced Folding & Outline:
+  foldtext displays structure summaries (e.g. +-- IF STATUS = "A",
+  +-- EVALUATE TXN-TYPE, +-- PERFORM UNTIL EOF) instead of raw line counts.
+  Aerial / Syms outline provides a true multi-level parent-child hierarchy
+  containing Sections, Paragraphs, IF, EVALUATE, WHEN, PERFORM, READ, WRITE,
+  REWRITE, SEARCH, unquoted CALL, and embedded SQL statements (SQL SELECT,
+  SQL UPDATE, etc.).
+
+==============================================================================
 SETUP                                                               *cobol-setup*
 
-Install iamcheyan/cobol.nvim with your plugin manager:
+Install cobol.nvim with your plugin manager:
 
     {
-      "iamcheyan/cobol.nvim",
+      "cobol.nvim",
       ft = { "cobol", "cbl", "cob" },
       opts = {},
     }

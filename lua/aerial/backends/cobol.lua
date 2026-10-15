@@ -222,8 +222,9 @@ M.fetch_symbols_sync = function(bufnr)
             sec_name = upper:match("^%s*([A-Z0-9%-]+%s+SECTION)$")
           end
           if sec_name and not sec_name:match("^EXIT%s+") then
+            local display_sec = sec_name:match("^([A-Z0-9%-]+)%s+SECTION") or sec_name
             local item = {
-              name = sec_name,
+              name = display_sec,
               kind = "Interface",
               lnum = lnum,
               col = find_col(raw_line, sec_name),
@@ -286,24 +287,35 @@ M.fetch_symbols_sync = function(bufnr)
     end
   end
 
+  set_end_range(bufnr, items)
+
   local ast_items = ast.aerial_items(bufnr)
   if #ast_items > 0 then
     local procedure
     for _, division in ipairs(items) do
-      if division.name and division.name:find("PROCEDURE DIVISION", 1, true) then procedure = division; break end
+      if division.name and division.name:find("PROCEDURE DIVISION", 1, true) then
+        procedure = division
+        break
+      end
     end
     if procedure then
       for _, symbol in ipairs(ast_items) do
-        local parent, stack = procedure, { procedure }
-        while #stack > 0 do
-          local candidate = table.remove(stack)
-          if candidate ~= procedure and candidate.lnum <= symbol.lnum and candidate.end_lnum >= symbol.end_lnum then
-            parent = candidate
+        local best_parent = procedure
+        local function find_deepest(node)
+          if node ~= procedure and node.lnum and node.end_lnum then
+            if node.lnum <= symbol.lnum and node.end_lnum >= symbol.end_lnum then
+              best_parent = node
+            end
           end
-          for _, child in ipairs(candidate.children or {}) do stack[#stack + 1] = child end
+          for _, child in ipairs(node.children or {}) do
+            find_deepest(child)
+          end
         end
-        parent.children = parent.children or {}
-        parent.children[#parent.children + 1] = symbol
+        find_deepest(procedure)
+        symbol.parent = best_parent
+        symbol.level = (best_parent.level or 0) + 1
+        best_parent.children = best_parent.children or {}
+        table.insert(best_parent.children, symbol)
       end
     end
   end

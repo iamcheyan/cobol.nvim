@@ -11,5 +11,6 @@
   (string_statement) @cobol.string
   (unstring_statement) @cobol.unstring
   (when) @cobol.when
+  (call_statement) @cobol.call
   (paragraph_header) @cobol.paragraph
   (section_header) @cobol.section)

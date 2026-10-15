@@ -103,4 +103,16 @@ function M.foldexpr(lnum)
   return tostring(level)
 end
 
+function M.foldtext()
+  local bufnr = vim.api.nvim_get_current_buf()
+  local lnum = vim.v.foldstart
+  local ok_ast, ast = pcall(require, "cobol.ast")
+  if ok_ast and ast.foldtext_for_line then
+    return ast.foldtext_for_line(bufnr, lnum)
+  end
+  local line = vim.api.nvim_buf_get_lines(bufnr, lnum - 1, lnum, false)[1] or ""
+  local clean = line:gsub("^%s%s%s%s%s%s%s?", ""):gsub("^%s+", ""):gsub("%s+$", "")
+  return "+-- " .. clean
+end
+
 return M

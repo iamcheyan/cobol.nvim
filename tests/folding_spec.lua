@@ -27,5 +27,12 @@ vim.bo.filetype = "cobol"
 cobol.setup({ diagnostics = { enable = false } })
 assert(vim.wo.foldmethod == "expr", "COBOL buffers should use expression folding")
 assert(vim.wo.foldexpr:find("cobol.folding", 1, true), "COBOL foldexpr should use cobol.folding")
+assert(vim.wo.foldtext:find("cobol.folding", 1, true), "COBOL foldtext should use cobol.folding")
+
+-- Test foldtext content
+vim.v.foldstart = 1
+assert(folding.foldtext():find("IDENTIFICATION DIVISION"), "foldtext should display division name")
+vim.v.foldstart = 7
+assert(folding.foldtext():find("MAIN%-PARA"), "foldtext should display paragraph name")
 
 print("folding_spec: OK")
