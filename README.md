@@ -10,8 +10,7 @@ The complete Chinese learning guide includes a COBOL introduction, a reference
 for every plugin feature, project setup, and step-by-step exercises:
 [README.zh-CN.md](README.zh-CN.md).
 
-![cobol.nvim overview](assets/cobol.nvim-overview.png)
-
+![](assets/image-20261016-111954.png) 
 The screenshot shows the main workflow: the Aerial structure outline, fixed-format column guides, COBOL navigation, and a copybook preview in the editor. Aerial is a Neovim plugin that provides a searchable code-structure Outline sidebar.
 
 ## Who is it for?
