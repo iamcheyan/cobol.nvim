@@ -4,8 +4,8 @@ COBOL editing support for Neovim, with fixed-format guides, smart indentation,
 navigation, Copybook lookup, completion, PIC size estimates, folding, and
 GnuCOBOL diagnostics. A COBOL language server is not required.
 
-The complete Chinese learning guide, including examples and exercises, is in
-README.zh-CN.md at the plugin root.
+For the same plugin features, configuration, and brief usage examples in
+Chinese, see README.zh-CN.md at the plugin root.
 
 ==============================================================================
 CONTENTS                                                            cobol.nvim
@@ -146,7 +146,8 @@ NAVIGATION                                                       *cobol-navigati
 
 gd jumps to a paragraph, section, or data definition in the current source and
 recursively referenced Copybooks. Ambiguous definitions are offered in a
-selection list. The plugin provides this navigation without a COBOL LSP.
+selection list. The plugin provides this navigation without a COBOL LSP. The
+current index may miss unindented free-format declarations.
 
   gf      Open the Copybook on the current COPY statement
   K       Preview a definition or Copybook in a floating window
@@ -325,7 +326,7 @@ The source still declares enabled, overflow_col, and smart_comments, but
 currently does not consult them for the respective behavior. Do not rely on
 these as switches.
 
-For a learning guide, examples, and step-by-step exercises, see
-README.zh-CN.md in the plugin root.
+For Chinese usage examples and a feature overview, see README.zh-CN.md in
+the plugin root.
 
 vim:tw=78:ts=8:ft=help:norl:

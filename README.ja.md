@@ -64,6 +64,23 @@ Aerial を使う場合は、Aerial 自体をインストールして COBOL バ�
 4. GnuCOBOL がある場合は保存するか `<leader>cl` / `:CobolLint` で構文を検査します。`<leader>cq` / `:CobolQuickfix` で問題の一覧を開けます。
 5. Division、Section、Paragraph、データ項目の折りたたみには `za`、`zc`、`zo` を使います。アウトラインは必要に応じて Aerial などを別途インストールします。
 
+例えば次の固定形式ソースを `.cob` ファイルに保存します（行頭の空白もソース形式の一部です）：
+
+```cobol
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DEMO.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-STATUS PIC X VALUE "Y".
+       PROCEDURE DIVISION.
+           IF WS-STATUS = "Y"
+               DISPLAY "READY"
+           END-IF.
+           STOP RUN.
+```
+
+`WS-STATUS` 上で `gd` を押して宣言へ移動し、`<C-o>` で戻れます。パーサーがあれば `IF` と `END-IF` の間を `%` で移動でき、対応するブロックが強調されます。01 項目上の `:CobolCalcRecord` でサイズを概算し、`cobc` があれば `:CobolLint` で構文を確認します。`COPY "CUSTOMER.CPY".` 上では `gf` で Copybook を開き、`K` でプレビューできます。
+
 ## 固定形式の編集と移動
 
 列ガイドは `:CobolGuideToggle` で切り替えます。`:CobolGuideDisable` は表示と診断のアタッチを解除して現在の診断を消去しますが、既存のバッファー内キーマップや折りたたみ設定は削除しません。`:CobolGuideEnable` で再度アタッチします。ガイド切り替え用の既定のキーはありません。
@@ -71,14 +88,14 @@ Aerial を使う場合は、Aerial 自体をインストールして COBOL バ�
 | キー | 用途 |
 | --- | --- |
 | `g7` / `g8` / `g12` / `g73` | 固定形式の各列へ移動 |
-| `gd` / `:CobolGotoDef` | 現在のファイルと再帰的に参照される Copybook の定義を検索し、同名なら候補を選択 |
+| `gd` / `:CobolGotoDef` | 現在のファイルと再帰的に参照される Copybook の定義を検索し、同名なら候補を選択（字下げなしの自由形式の定義は現状の索引で見落とす場合あり） |
 | `gf` / `:CobolGotoCopybook` | `COPY` 文の Copybook を開く |
 | `K` / `:CobolPreview` | 定義または Copybook を浮動ウィンドウに表示 |
 | `gcc`、Visual `gc`、`<leader>c*` | 現在行または選択行のコメントを切り替え |
 
 固定形式の Insert モードでカーソル前が空白のみの場合、`<Tab>` は 7、8、12 列の位置合わせを行い、以降は `shiftwidth` 分進みます。`<S-Tab>` は逆方向へ移動します。自由形式ではこの固定列用の動作は使いません。固定形式のコメントは 7 列目の `*`、自由形式は `*>` です。`:CobolToggleComment` は行範囲も受け付けます。
 
-固定形式のインデントは一般的な制御ブロックやデータレベルを扱うヒューリスティックです。`gg=G` でファイル全体、Visual 選択後の `=` で一部を整形できます。連続行や方言固有の構文は、列位置とコンパイラーの結果を確認してください。詳しくは[中国語の固定形式ガイド](README.zh-CN.md#2-固定格式-tab-和智能缩进)を参照してください。
+固定形式のインデントは一般的な制御ブロックやデータレベルを扱うヒューリスティックです。`gg=G` でファイル全体、Visual 選択後の `=` で一部を整形できます。連続行や方言固有の構文は、列位置とコンパイラーの結果を確認してください。同じ操作については[中国語の機能説明](README.zh-CN.md#固定格式与编辑)も参照できます。
 
 ## Tree-sitter による構造表示
 
@@ -98,7 +115,7 @@ blink.cmp をインストールすると、`cobol`、`cbl`、`cob` バッファ�
 
 `:CobolFormatCase` は認識できる予約語を大文字にします。**範囲なしではバッファー全体**を処理し、Visual 選択や行範囲を指定した場合はその範囲だけを処理します。文字列、コメント、ユーザー定義名は維持します。完全なソース整形ではありません。
 
-`<leader>cr` / `:CobolCalcRecord` は、DISPLAY、COMP/BINARY、COMP-3/PACKED-DECIMAL、基本項目の `OCCURS`、`REDEFINES` などについてサイズとオフセットを概算します。**グループ項目の OCCURS は子項目の合計を繰り返し回数倍せず、より大きい REDEFINES の重ね合わせも合計サイズを増やしません。** 実際の ABI・ファイル長は対象環境のコンパイラーで検証してください。ステータスラインへの組み込みには `require("cobol.statusline").component()` または `.format()` を利用できます。
+`<leader>cr` / `:CobolCalcRecord` は、DISPLAY、COMP/BINARY、COMP-3/PACKED-DECIMAL、基本項目の `OCCURS`、`REDEFINES` などについてサイズとオフセットを概算します。**グループ項目の OCCURS は子項目の合計を繰り返し回数倍せず、より大きい REDEFINES の重ね合わせも合計サイズを増やしません。** 実際の ABI・ファイル長は対象環境のコンパイラーで検証してください。ステータスラインへの組み込みには `require("cobol.statusline").component()` または `.format()` を利用できます。contextline がある場合は COBOL 用のコンテキスト情報も登録できます。
 
 ## GnuCOBOL の診断とプロジェクト設定
 
@@ -124,7 +141,7 @@ blink.cmp をインストールすると、`cobol`、`cbl`、`cob` バッファ�
 
 Copybook の相対パスはプロジェクトルートから解決されます。`source_format` は `fixed`、`free`、`auto` に対応します。ファイルがなければプラグイン側の設定を使用し、不正な JSON またはフィールドは警告して安全な既定値へ戻します。`commands` はシェルを通さず引数配列として実行します。未指定なら Makefile の `build`/`all`、`run`、`test`/`check` ターゲットを探し、単一ファイルには `cobc` を使用します。複数ファイルのプロジェクトには独自のビルドルールを用意してください。コマンド実行前に現在のファイルを保存してください。ビルドルールはあるのに `run` がなければ、実行ファイルを推測せずエラーにします。
 
-グローバル設定では `source_format`、`project_root`、`copybook_paths`、`cobc_command`、`diagnostics`、`completion.enable`、`structure_scope`、`folding.foldtext` などを `opts` で変更できます。設定の詳細は[中国語の設定一覧](README.zh-CN.md#全局插件配置)と `:help cobol-configuration` を参照してください。ソースには `enabled`、`overflow_col`、`smart_comments` も宣言されていますが、現状ではそれぞれの動作を制御していないため、設定スイッチとして使用しないでください。
+グローバル設定では `source_format`、`project_root`、`copybook_paths`、`cobc_command`、`diagnostics`、`completion.enable`、`structure_scope`、`folding.foldtext` などを `opts` で変更できます。設定の詳細は[中国語の設定一覧](README.zh-CN.md#项目配置与默认选项)と `:help cobol-configuration` を参照してください。ソースには `enabled`、`overflow_col`、`smart_comments` も宣言されていますが、現状ではそれぞれの動作を制御していないため、設定スイッチとして使用しないでください。
 
 ## コマンド一覧
 
@@ -138,19 +155,6 @@ Copybook の相対パスはプロジェクトルートから解決されます�
 | `:CobolFormatCase` | 範囲なしならバッファー全体、行範囲指定時はその範囲の予約語を大文字化 |
 | `:CobolLint` / `:CobolQuickfix` / `:CobolDiagnosticsToggle` | 構文チェック、Quickfix、自動診断の切り替え |
 | `:CobolBuild` / `:CobolRun` / `:CobolTest` | プロジェクトのビルド、実行、テスト |
-
-## 練習用リポジトリ
-
-[iamcheyan/cobol](https://github.com/iamcheyan/cobol) には 32 の番号付きレッスンがあります。プラグインの利用に必須ではありません。
-
-```bash
-git clone https://github.com/iamcheyan/cobol.git ~/cobol-practice
-cd ~/cobol-practice
-make course-check
-nvim lessons/01_hello-cobol/lesson.cob
-```
-
-各レッスンは `lessons/NN_*/` 以下にあり、`README.md`、`exercise.md`、`answer.md` と `lesson.cob` が基本です。Copybook などの補助ファイルがあるレッスンもあります。後半の SQL レッスンには別途 `make course-check-sql` が用意されています。
 
 ## 困ったとき・開発
 

@@ -1,14 +1,12 @@
 # cobol.nvim
 
-COBOL editing support for Neovim, with a focus on fixed-format source code and a beginner-friendly workflow.
+COBOL editing support for Neovim, focused on fixed-format source and practical navigation, editing, structure, and compiler feedback.
 
 The plugin helps you read existing COBOL programs, understand their layout, find definitions and copybooks, inspect data records, and catch syntax errors while you work. It does not require a language server.
 
 [简体中文](README.zh-CN.md) · [日本語](README.ja.md)
 
-The complete Chinese learning guide includes a COBOL introduction, a reference
-for every plugin feature, project setup, and step-by-step exercises:
-[README.zh-CN.md](README.zh-CN.md).
+The [Chinese README](README.zh-CN.md) covers the same plugin features, settings, and short examples.
 
 ![Syms structure outline and an active IF/ELSE/END-IF scope](assets/image-20261016-111954.png)
 
@@ -48,7 +46,7 @@ The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, fil
 ## Requirements
 
 - Neovim 0.10 or newer.
-- A C compiler (`gcc`, `clang`, or `cc`) is required to build the bundled Tree-sitter parser. The plugin tries to compile a missing parser on startup; the AST features (scope badges, breadcrumbs, `%` matches, and text objects) are unavailable without it.
+- A C compiler (`gcc`, `clang`, or `cc`) is required to **build** the bundled Tree-sitter parser. The plugin tries to compile a missing parser on startup; AST features (scope badges, breadcrumbs, `%` matching, and text objects) require a usable parser, but no compiler is needed at runtime if `cobol.so` is already installed.
 - [blink.cmp](https://github.com/saghen/blink.cmp) is optional. Install it to enable the built-in COBOL completion source.
 - GnuCOBOL (`cobc`) is optional. Install it to use compiler diagnostics.
 - Aerial is optional. It is a Neovim code-structure/Outline sidebar plugin; install it only if you want the outline view.
@@ -118,7 +116,12 @@ The defaults are suitable for a small project. A project-specific setup can look
 The default configuration also enables the column guides, Winbar, breadcrumbs, data-level
 highlighting, PIC/record size hints, and column-72 overflow highlighting. `columns` defaults to
 `{ 7, 8, 12, 73 }`. `structure_scope.enable` turns the paired-structure badges and connecting line
-on or off, and `structure_scope.show_branches` controls the `ELSE`/`WHEN` branch badges.
+on or off, and `structure_scope.show_branches` controls the `ELSE`/`WHEN` branch badges. Other
+options include `smart_tab`, `keymaps`, `show_hierarchy_hint`, `show_pic_size`, `highlight_levels`,
+`show_colorcolumn`, `disable_indent_guide`, `folding.foldtext`, `diagnostics.on_save/on_change`,
+`diagnostics.warnings/dialect`, and `completion.enable`; see `:help cobol-configuration` for defaults.
+The declared `enabled`, `overflow_col`, and `smart_comments` fields do not currently control their
+respective behavior; do not use them as switches.
 
 ## A first workflow
 
@@ -127,7 +130,24 @@ on or off, and `structure_scope.show_branches` controls the `ELSE`/`WHEN` branch
 3. To see an outline, install and configure Aerial (or another outline such as Syms). This plugin provides the COBOL symbols/backend but does not bind an outline key by default; Aerial exposes `:AerialToggle`.
 4. Place the cursor on a level-01 record or field and press `<leader>cr` to inspect the estimated layout.
 5. Save the file or press `<leader>cl` to run a syntax check with GnuCOBOL.
-6. Use `za`, `zc`, and `zo` to fold or unfold the current COBOL structure.
+6. Use `za`, `zc`, and `zo` to fold or unfold the current Division, Section, Paragraph, or data item.
+
+For example, save the following as a fixed-format `.cob` file (the leading spaces matter):
+
+```cobol
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. DEMO.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-STATUS PIC X VALUE "Y".
+       PROCEDURE DIVISION.
+           IF WS-STATUS = "Y"
+               DISPLAY "READY"
+           END-IF.
+           STOP RUN.
+```
+
+Press `gd` on `WS-STATUS` to visit its declaration and `<C-o>` to return. With the parser available, `%` jumps between `IF` and `END-IF` and the active block gets scope badges. Run `:CobolCalcRecord` on the 01 item and, with `cobc` installed, `:CobolLint` to check the source. On a `COPY "CUSTOMER.CPY".` statement, `gf` opens the Copybook and `K` previews it; add its directory to `copybook_paths` if necessary.
 
 ## Fixed-format editing
 
@@ -145,11 +165,11 @@ where fixed-format compilers normally ignore source text.
 
 At the start of a line, Insert-mode `<Tab>` moves input toward Area A or Area B instead of inserting arbitrary indentation. `<leader>c*`, `gcc`, and `:CobolToggleComment` toggle comments according to the detected source format: fixed format uses `*` in column 7, while free format uses `*>`. Visual selections are supported (`gc` in Visual mode, or a range with `:CobolToggleComment`).
 
-In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12; from column 12 onward it inserts a normal `shiftwidth` indent. `<S-Tab>` reverses through these stops without deleting source text. See the [complete Chinese fixed-format guide](README.zh-CN.md#2-固定格式-tab-和智能缩进).
+In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12; from column 12 onward it inserts a normal `shiftwidth` indent. `<S-Tab>` reverses through these stops without deleting source text. See the [Chinese feature reference](README.zh-CN.md#固定格式与编辑) for the same behavior.
 
 ## Navigation and outline
 
-- `gd` / `:CobolGotoDef`: search the source and recursively referenced Copybooks; choose when names are ambiguous.
+- `gd` / `:CobolGotoDef`: search the source and recursively referenced Copybooks; choose when names are ambiguous. The current index may miss unindented free-format declarations, so check source format and search paths if a definition cannot be found.
 - `gf` / `:CobolGotoCopybook`: open the Copybook under the cursor, with a choice when paths are ambiguous.
 - `K` / `:CobolPreview`: preview the declaration and its source file in a floating window.
 - `<C-o>`: return through Neovim's jump list.
@@ -184,7 +204,6 @@ With the parser installed:
   - **Single Active Focus**: Focuses and highlights only the single closest / innermost matching control block at cursor to avoid visual clutter from nested guides.
   - **Closed Control Blocks**: Opening keywords (e.g. `IF`, `EVALUATE`, `PERFORM`, `READ`, `WRITE`, `SEARCH`, `EXEC SQL`, `XML PARSE`, `JSON PARSE`, etc.) and matching `END-*` keywords are highlighted with **distinct colored background badges and crisp bold white text**. A **vertical dashed guide line (`┆`)** is drawn down the aligned column across all inner lines, cleanly enclosing the entire block.
   - **Branches (`ELSE` & `WHEN`)**: Intermediate branches (e.g. `ELSE` in `IF`, `WHEN` in `EVALUATE`) receive matching badge highlights, clearly segmenting branch boundaries like an HTML/XML tag tree.
-  - **High-Contrast Rainbow Palette**: Level 1 Royal Blue `#2563eb` (guide `#60a5fa`), Level 2 Amber `#d97706` (guide `#fbbf24`), Level 3 Crimson `#dc2626` (guide `#f87171`), Level 4 Emerald `#16a34a` (guide `#4ade80`), Level 5 Purple `#9333ea` (guide `#c084fc`), Level 6 Cyan `#0891b2` (guide `#22d3ee`). Crisp and highly distinct against dark blue, black, or light themes alike.
   - **Customization**: `structure_scope = { enable = true, char = "┆", show_branches = true }`.
 - **AST Breadcrumb**: Tracks the full structural hierarchy (`Division > Section > Paragraph > IF > EVALUATE > WHEN`). The vendored grammar keeps statements, headers and `END-*` tokens as flat siblings, so the chain is rebuilt from the paired structure ranges instead of tree ancestry: a `WHEN` clause and its enclosing `IF`/`EVALUATE` are resolved by range, and a division, section or paragraph contributes only its header line. Exposed through:
   - Winbar: Automatically integrated when `show_breadcrumbs = true` in config. The breadcrumb is clipped from the left when the window is narrow, so the innermost structures stay visible.
@@ -276,7 +295,7 @@ When `blink.cmp` is installed, the plugin registers a COBOL completion source au
 
 The source suggests common COBOL verbs and clauses, ready-to-expand snippets such as `IF ... END-IF` and `PERFORM ... END-PERFORM`, names declared in the current buffer, and symbols found in referenced Copybooks. Suggestions are case-insensitive and are most useful after typing a word prefix such as `PER`, `WS-`, or `COPY`.
 
-Completion is an optional convenience: the ruler, navigation, calculator, folding, formatting, and diagnostics continue to work without `blink.cmp`.
+Completion is an optional convenience: the ruler, navigation, calculator, folding, formatting, and diagnostics continue to work without `blink.cmp`. For a custom statusline, use `require("cobol.statusline").component()` or `.format()` to display format, source area, breadcrumb, PIC, and record size. If contextline is present, the plugin can also register its COBOL context provider.
 
 ## Folding and formatting
 
@@ -336,27 +355,6 @@ Unsaved buffer contents are passed to the compiler through standard input when p
 | `:CobolQuickfix` | Open the diagnostics Quickfix list |
 | `:CobolDiagnosticsToggle` | Toggle automatic diagnostics |
 | `:CobolBuild` / `:CobolRun` / `:CobolTest` | Build, run, or check the project |
-
-## Practice repository
-
-The companion COBOL course is optional and provides runnable examples for practicing the features described here:
-
-```bash
-git clone https://github.com/iamcheyan/cobol ~/cobol-practice
-cd ~/cobol-practice
-make course-check
-nvim lessons/01_hello-cobol/lesson.cob
-```
-
-The course has 32 numbered lesson directories under `lessons/`, each shipping a `lesson.cob`
-alongside `README.md`, `exercise.md`, and `answer.md` (some lessons add extra programs, copybooks,
-scripts, and data fixtures). `make course-check` validates the lesson deliverables and
-syntax-checks lessons 01–28; lessons 29–32 use the GixSQL + SQLite toolchain and are covered by
-`make course-check-sql`. See `lessons/DIRECTORY.md` for the sequence, prerequisites, and goals. The
-lessons cover fixed-format source, copybooks, PIC clauses and storage, `REDEFINES`, `OCCURS`,
-`SEARCH ALL`, file processing, and control-break reporting, ending with a bank reconciliation
-project that maps the examples to the plugin's navigation, calculator, folding, formatting, and
-diagnostics commands.
 
 ## Troubleshooting
 

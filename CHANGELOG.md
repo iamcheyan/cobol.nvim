@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Focus the three README translations and Neovim help on the plugin: replace
+  the former COBOL-course references and lengthy exercises with short
+  plugin-usage examples while retaining feature and command coverage.
 - Attempt to compile and install a missing Tree-sitter COBOL parser on startup
   when a C compiler is available; provide a plugin-manager build hook.
 - Highlight the single innermost paired structure at the cursor with

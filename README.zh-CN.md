@@ -1,44 +1,31 @@
-# cobol.nvim：COBOL 学习与 Neovim 实战手册
+# cobol.nvim
 
-这是本插件的中文主手册，面向正在学习 COBOL、尤其是 GnuCOBOL 固定格式的开发者。内容按“先看懂源码、再写程序、然后检查和运行”的顺序介绍语言基础、插件功能、快捷键和练习。
+为 Neovim 提供 COBOL 编辑支持：固定格式列标尺与缩进、Copybook/定义跳转、Tree-sitter 结构提示、记录长度估算、可选补全和 GnuCOBOL 诊断。不需要 COBOL 语言服务器。
 
-`cobol.nvim` 为 COBOL 文件提供源码列标尺、固定格式缩进、结构导航、Copybook 搜索、PIC 布局估算、补全、折叠和编译器诊断。它不要求安装 COBOL LSP。Neovim 原生帮助页可用 `:help cobol.nvim` 打开；日常学习以本文为主。
+[English](README.md) · [日本語](README.ja.md) · Neovim 帮助：`:help cobol.nvim`
 
-[English](README.md) · [日本語](README.ja.md)
+![Syms 大纲及 IF/ELSE/END-IF 结构提示](assets/image-20261016-111954.png)
 
-![Syms 结构大纲与 IF/ELSE/END-IF 作用域提示](assets/image-20261016-111954.png)
+截图中的 Syms 是另行配置的大纲界面；插件自带的是 Aerial 的 COBOL 后端。编辑区显示列标尺、当前已配对 IF 块的彩色起止/分支标记及连接虚线，顶部为 Winbar。主题和布局由个人 Neovim 配置决定。
 
-新截图展示 Syms 结构大纲、固定格式列标尺、顶部 Winbar，以及当前 IF 块的彩色起止/ELSE 标记和连接虚线。Syms 是截图中的可选大纲界面；本插件也提供可供 Aerial 使用的 COBOL 后端。界面配色和布局取决于用户自己的 Neovim 配置。
+## 安装与依赖
 
-## 目录
+需要 Neovim 0.10+。使用 lazy.nvim：
 
-1. [安装和第一次运行](#安装和第一次运行)
-2. [COBOL 源码格式速查](#cobol-源码格式速查)
-3. [插件快捷键与命令](#插件快捷键与命令)
-4. [逐项学习插件功能](#逐项学习插件功能)
-5. [GnuCOBOL 项目配置](#gnucobol-项目配置)
-6. [COBOL 入门练习](#cobol-入门练习)
-7. [PIC 与记录长度估算](#pic-与记录长度估算)
-8. [常见问题](#常见问题)
-
-## 安装和第一次运行
-
-使用 lazy.nvim：
-
-~~~lua
+```lua
 {
   "iamcheyan/cobol.nvim",
-  build = "bash scripts/build_parser.sh", -- 可选：安装时预编译 Tree-sitter 解析器
   ft = { "cobol", "cbl", "cob" },
+  build = "bash scripts/build_parser.sh", -- 可选：安装时编译 Tree-sitter 解析器
   opts = {},
 }
-~~~
+```
 
-即使省略 `build`，插件启动时也会尝试用系统的 `gcc`、`clang` 或 `cc` 编译缺失的解析器。结构胶囊、面包屑、`%` 配对和 AST 文本对象需要可用的解析器；没有 C 编译器时可以手动运行 `./scripts/build_parser.sh`（仍需安装 C 编译器）。
+- 插件会在启动时尝试用 `gcc`、`clang` 或 `cc` 编译缺失的 COBOL Tree-sitter 解析器；也可在插件目录执行 `./scripts/build_parser.sh`。AST 结构功能需要解析器；若已有可用的 `cobol.so`，运行时不必再安装 C 编译器。
+- GnuCOBOL (`cobc`) 用于诊断及编译/运行，插件不会安装它；[blink.cmp](https://github.com/saghen/blink.cmp) 用于可选补全。未安装这两个依赖时，其他编辑功能仍可使用。
+- Aerial 大纲是可选的，需另行安装。下面的 lazy.nvim 配置启用本插件提供的 COBOL 后端：
 
-要使用 Aerial 大纲，需要另行安装并配置 Aerial 后端：
-
-~~~lua
+```lua
 {
   "stevearc/aerial.nvim",
   opts = function(_, opts)
@@ -47,313 +34,85 @@
     })
   end,
 }
-~~~
+```
 
-`<leader>cs` 不是本插件提供的默认映射。需要时可自行添加 `vim.keymap.set("n", "<leader>cs", "<cmd>AerialToggle<CR>")`；也可以直接运行 `:AerialToggle`。截图中的 Syms 应按照 Syms 自己的说明安装和配置。
+使用 `:AerialToggle` 打开大纲；本插件不提供 `<leader>cs` 等默认大纲快捷键，需自行映射。Syms 则应按 Syms 自身说明配置。
 
-建议安装 GnuCOBOL，这样编译检查、构建和单文件运行才能使用。插件不会替你安装系统软件。`blink.cmp` 和 Aerial 都是可选插件：前者提供补全菜单，后者显示结构大纲。其余核心功能不依赖这两个插件。
+插件附着于 `cobol`、`cbl`、`cob` filetype。打开 `.cob`、`.cbl`、`.cobol` 或 Copybook 后，用 `:set filetype?` 确认当前 filetype；遇到未识别的 `.cpy`，按自己的 Neovim filetype 配置设为 `cobol`。
 
-打开 `.cbl`、`.cob`、`.cobol` 或 `.cpy` 文件后，先确认：
+## 快速上手
 
-~~~vim
-:set filetype?
-~~~
+下面是一个**固定格式**示例，行首空格是源码格式的一部分：
 
-结果应为 `cobol`、`cbl` 或 `cob`。插件会在这些 filetype 的缓冲区自动启用。用 `:CobolGuideToggle` 可以临时关闭或重新打开列标尺与 Winbar 提示；关闭时也会清理当前诊断，但不会卸载已有的编辑映射或折叠设置。
-
-建议第一次按这个顺序试用：
-
-1. 打开 COBOL 源码，找到列标尺并看清第 7、8、12、73 列。
-2. 光标放在段落名或字段名上按 `gd`，然后按 `<C-o>` 返回。
-3. 在 `COPY` 语句上按 `gf` 打开 Copybook，按 `K` 预览。
-4. 光标放到一个 01 记录上，运行 `:CobolCalcRecord`。
-5. 故意写一个小语法错误，运行 `:CobolLint`，再用 Quickfix 找错误。
-6. 用 `za` 折叠当前结构，用 `:CobolBuild` 或 `:CobolRun` 完成编译循环。
-
-## COBOL 源码格式速查
-
-### 固定格式的列
-
-固定格式沿用打孔卡布局。列号从 1 开始：
-
-| 列 | 含义 | 写代码时注意 |
-| --- | --- | --- |
-| 1–6 | 序号区 | 通常为空；已有序号时插件的定列缩进不会改它 |
-| 7 | 指示区 | 空格表示普通行；`*` 表示注释；`/` 表示换页；`-` 常用于续行 |
-| 8–11 | Area A | 常放 Division、Section、Paragraph、01/77 等较高层定义 |
-| 12–72 | Area B | 常放字段、语句、子句和过程代码 |
-| 73–80 | 标识区 | 编译器通常不把这里当作程序正文；正文不要越过第 72 列 |
-
-例如，下面每行开头的七个空格表示源码从第 8 列开始：
-
-~~~cobol
+```cobol
        IDENTIFICATION DIVISION.
-       PROGRAM-ID. HELLO.
+       PROGRAM-ID. DEMO.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01 WS-STATUS PIC X VALUE "Y".
        PROCEDURE DIVISION.
-           DISPLAY "HELLO, COBOL".
+           IF WS-STATUS = "Y"
+               DISPLAY "READY"
+           END-IF.
            STOP RUN.
-~~~
+```
 
-第 7 列注释行示例（六个空格后是星号）：
+1. 打开文件，看第 7/8/12/73 列标尺；按 `g8` 或 `g12` 跳到对应区域。把光标放在 `WS-STATUS` 上按 `gd` 跳转，按 `<C-o>` 返回。
+2. 把光标放在 `IF` 或 `END-IF` 上按 `%` 跳到配对关键字；选中 IF 块可用 `vaf`，其内部用 `vif`。光标置于块内时查看彩色作用域标记和 Winbar。
+3. 在 `01 WS-STATUS` 上运行 `:CobolCalcRecord` 查看估算；有 `cobc` 时运行 `:CobolLint`，再用 `:CobolQuickfix` 查看问题。`za` 可折叠 Division、Section、Paragraph 或数据项。
 
-~~~cobol
-      * 这是固定格式注释。
-~~~
+如果程序使用 `COPY "CUSTOMER.CPY".`，在 Copybook 名称上按 `gf` 打开，按 `K` 预览，程序中的字段引用可用 `gd` 定位定义。将 Copybook 路径放入 `copybook_paths`，才能搜索到非默认目录的文件。
 
-如果一行正文越过第 72 列，插件会高亮越界部分。标尺负责可视提示，不会自动改写源码。
+## 功能说明
 
-### 固定格式与自由格式
+### 固定格式与编辑
 
-固定格式必须遵守列位置。自由格式不使用这些固定列区。`source_format` 可以是：
+固定格式的 1–6 列是序号区，7 列是指示区（`*` 注释、`/` 换页、`-` 续行），8–11 列为 Area A，12–72 列为 Area B，73 列起是标识区。插件默认在 7、8、12、73 列画细线，并高亮第 72 列后的内容；`g7`、`g8`、`g12`、`g73` 跳到相应列，必要时会填充短行。`:CobolGuideToggle` 开关视觉提示与诊断附着；关闭时清理当前诊断，但保留已安装的映射和折叠设置。也可用 `:CobolGuideEnable` / `:CobolGuideDisable`。
 
-- `fixed`：明确按固定格式处理，适合固定格式项目。
-- `free`：自由格式；不应用固定列 Tab 停靠。
-- `auto`：根据缓冲区内容判断；不确定时按固定格式处理。
+`source_format` 可设为 `auto`（默认，无法识别时按固定格式）、`fixed` 或 `free`。固定格式的 Insert `<Tab>` 在光标前只有空白时依次停靠 7、8、12 列，之后按 `shiftwidth` 缩进；`<S-Tab>` 反向停靠。自由格式不用固定列停靠。缩进表达式识别常见的 IF/EVALUATE/PERFORM/READ/SEARCH/WRITE/EXEC 块及数据级别；`==`、Visual `=`、`gg=G` 可重缩进。续行、注释、序号/指示区和 73–80 列标识区会受保护；缩进仍是启发式的，请检查编译结果。
 
-插件重点服务固定格式编辑。格式判断错误时，在项目的 `.cobol.json` 中明确设置 `source_format`，不要只依赖自动判断。
+`gcc`（可带数量）、Visual `gc`、`<leader>c*` 和 `:CobolToggleComment` 切换注释：固定格式在第 7 列用 `*`，自由格式用 `*>`；命令可指定行范围。`:CobolFormatCase` 把识别到的保留字转为大写，保留字符串、注释和用户定义名；**不带范围处理整个缓冲区**，指定行范围才只处理该范围，它不是完整的源码格式化器。
 
-### COBOL 程序的大致结构
+### 定义与 Copybook 导航
 
-- `IDENTIFICATION DIVISION`：程序身份信息，例如 `PROGRAM-ID`。
-- `ENVIRONMENT DIVISION`：文件、设备和运行环境描述。
-- `DATA DIVISION`：文件记录、工作区变量和链接区数据。
-- `PROCEDURE DIVISION`：程序执行步骤。
-- `SECTION`：一组相关的段落或声明。
-- `Paragraph`：可由 `PERFORM` 调用的一段过程代码，通常以名称和句点开始。
-
-最简单的可执行程序：
-
-~~~cobol
-       IDENTIFICATION DIVISION.
-       PROGRAM-ID. HELLO.
-       PROCEDURE DIVISION.
-           DISPLAY "HELLO, COBOL".
-           STOP RUN.
-~~~
-
-固定格式里，Division 和 Paragraph 名称通常放在 Area A，具体语句放在 Area B。句点有实际语法意义；不要为了缩进随意删掉它。
-
-## 插件快捷键与命令
-
-`<leader>` 取决于 Neovim 配置；常见设置是空格。以下映射默认只在 COBOL 缓冲区生效。运行 `:verbose nmap gd` 查询映射来源，用 `:map <按键>` 检查冲突。
-
-| 快捷键 | 作用 |
-| --- | --- |
-| `g7`、`g8`、`g12`、`g73` | 跳到指示区、Area A、Area B、标识区 |
-| `gd` | 跳到段落、Section 或数据定义；递归搜索引用的 Copybook；多结果时弹出选择 |
-| `gf` | 在 `COPY` 语句上打开对应 Copybook；同名候选不唯一时弹出选择 |
-| `K` | 预览光标所在定义或 Copybook |
-| `<C-o>`、`<C-i>` | 返回上一个跳转位置、向前重走跳转记录 |
-| `<leader>c*` | 切换当前行或 Visual 选区注释 |
-| `gcc` | 切换当前行注释；可带 Vim 数量，如 `3gcc` |
-| Visual `gc` | 切换所选行注释 |
-| Insert `<Tab>`、`<S-Tab>` | 固定格式列停靠和反向停靠 |
-| `<leader>cr` | 打开当前 01 记录的布局估算 |
-| `<leader>cl` | 立即运行 GnuCOBOL 语法检查 |
-| `<leader>cq` | 打开 COBOL 诊断 Quickfix 列表 |
-
-### 所有插件命令
-
-| 命令 | 用途 |
-| --- | --- |
-| `:CobolGuideToggle` | 切换可视提示及诊断附着；保留已有映射与折叠设置 |
-| `:CobolGuideEnable` / `:CobolGuideDisable` | 启用或停用提示及诊断附着 |
-| `:CobolToggleComment` | 按当前格式切换注释；也接受行范围 |
-| `:CobolGotoDef` | 执行 `gd` 定义跳转 |
-| `:CobolGotoCopybook` | 执行 `gf` Copybook 跳转 |
-| `:CobolPreview` | 执行 `K` 预览 |
-| `:CobolCalcRecord` | 显示当前 01 记录的字段和偏移量估算 |
-| `:CobolStructure` | 通知显示光标所在已配对块的预期结束关键字（需解析器） |
-| `:CobolFormatCase` | 无范围时处理整个缓冲区；给定行范围时仅处理该范围 |
-| `:CobolLint` | 立即运行 GnuCOBOL 语法检查 |
-| `:CobolQuickfix` | 打开 COBOL 诊断 Quickfix 列表 |
-| `:CobolDiagnosticsToggle` | 开关自动编译器诊断 |
-| `:CobolBuild` | 构建当前源文件或调用项目构建命令 |
-| `:CobolRun` | 构建并运行单文件程序，或调用项目运行命令 |
-| `:CobolTest` | 调用项目测试命令；没有测试目标时执行语法检查 |
-
-## 逐项学习插件功能
-
-### 1. 列标尺、跳列与越界提示
-
-第 7、8、12、73 列的细线标尺会随 COBOL 窗口显示。顶部 Winbar 显示结构面包屑；若解析器可用，还会在右端显示当前已配对块的预期结束关键字。源码第 72 列后的内容会触发越界高亮。
-
-练习：光标停在任意 COBOL 行，依次按 `g7`、`g8`、`g12`、`g73`，观察列位置。检查越界部分，再用 `:CobolGuideToggle` 暂时关闭提示，重新运行以恢复。
-
-### 2. 固定格式 Tab 和智能缩进
-
-光标前只有空白时，Insert 模式的 `<Tab>` 会帮助你靠齐列位：
-
-| 插入位置 | `<Tab>` |
-| --- | --- |
-| 第 1–6 列 | 移到第 7 列 |
-| 第 7 列 | 移到第 8 列 |
-| 第 8–11 列 | 移到第 12 列 |
-| 第 12 列及之后 | 插入一个 `shiftwidth` 缩进；未设置或为 0 时按 4 个空格 |
-
-`<S-Tab>` 反向经过这些列位；第 12 列之后按一个缩进宽度退回，但不越过第 12 列。插入点前已有代码时会交回普通编辑器行为，不删除右侧源码。自由格式 COBOL 不使用固定格式列停靠。
-
-缩进表达式会识别常见的 `IF`/`END-IF`、`EVALUATE`/`END-EVALUATE`、`PERFORM`/`END-PERFORM`、`READ`、`SEARCH`、`WRITE` 和 `EXEC` 块，也会参考 Area A/B 与数据级别。当前行按 `==`，全文件按 `gg=G`，选区按 `=` 重新缩进。固定序号区、指示区、注释和第 73 列后的标识区会受到保护。
-
-自动缩进是启发式规则，不是完整 COBOL 解析器。复杂续行、编译器扩展语法或特殊版式后请检查列号和 `:CobolLint` 结果。
-
-### 3. 注释切换和保留字大小写
-
-固定格式用第 7 列的 `*` 标记整行注释，自由格式使用 `*>`。`gcc`、`<leader>c*` 和 Visual `gc` 会根据当前源格式切换注释。固定格式注释不会把第 7 列误当作普通缩进。
-
-`:CobolFormatCase` 将范围内识别出的 COBOL 保留字转换为大写。先选中一段再运行命令，或直接运行以处理整个缓冲区：
-
-~~~cobol
-           move "move is text" to ws-message
-           if ws-ready = "Y"
-               display ws-message
-           end-if
-~~~
-
-格式化器会保留字符串、注释和用户字段名；运行后仍应审阅结果，尤其是自定义词和编译器扩展。
-
-### 4. 结构导航、返回与 Copybook
-
-`gd` 是插件自己的 COBOL 定义跳转，不需要 COBOL LSP。它搜索当前程序和 `COPY` 引用的 Copybook，包含递归 Copybook。多个同名定义时会显示候选清单，按路径和行内容选择目标。
-
-- `<C-o>` 返回调用点或原字段位置。
-- `<C-i>` 向前重走刚才的跳转。
-- `gf` 在 `COPY` 行打开 Copybook。
-- `K` 在浮动窗口预览定义或 Copybook。
-
-搜索目录来自 `.cobol.json` 的 `copybook_paths` 或插件设置。`COPY ... REPLACING` 会把 Copybook 名称与替换文本分开处理。
+`gd` / `:CobolGotoDef` 搜索当前文件及递归引用的 Copybook 中的段落、Section 和数据定义；多个候选可选择。`gf` / `:CobolGotoCopybook` 打开 `COPY` 语句引用的文件；`K` / `:CobolPreview` 浮窗预览定义或 Copybook，`<C-o>` / `<C-i>` 沿 Neovim 跳转列表返回或前进。搜索支持区分 `COPY ... REPLACING` 的文件名和替换文本。路径来自 `copybook_paths` 或项目 profile，不需要 LSP。当前定义索引对不带固定格式列前缀的自由格式声明有局限；找不到时请核对源格式及 Copybook 搜索路径。
 
 ### Tree-sitter 结构视图
 
-插件在启动时只要检测到系统存在 C 编译器（`gcc`、`clang` 或 `cc`），会自动将解析器编译并安装到 Neovim 数据目录，无需手动干预。你也可以在 lazy.nvim 配置中声明 `build = "bash scripts/build_parser.sh"`，或者手动运行内置脚本构建：
+解析器可用时，插件在光标所在的**最内层已配对结构**上显示彩色开始/结束标记、连接虚线，以及 ELSE/WHEN 分支标记。配置 `structure_scope = { enable = true, char = "┆", show_branches = true }` 可分别控制开关、线条字符和分支标记。嵌套结构不会同时高亮所有层。支持 IF、EVALUATE、PERFORM、SEARCH、READ、WRITE、REWRITE、DELETE、START、STRING、UNSTRING，以及 XML PARSE、JSON PARSE、EXEC SQL、CLASS-ID、METHOD-ID、FACTORY、OBJECT 的配对。
 
-```sh
-./scripts/build_parser.sh
-```
+Winbar 的面包屑显示 Division → Section → Paragraph → 控制结构 → WHEN 等上下文，空间不足时保留靠近光标的层级；完整层级可用 `:lua require("cobol.ast").show_breadcrumb_float()` 查看。右侧列出当前位置**已解析且已配对**块对应的结束关键字（从内到外）。`:CobolStructure` 通过**通知**显示这些关键字；浮窗形式是 `:lua require("cobol.ast").show_waiting_closures_float()`。它不是缺失 `END-*` 的检查器：无法配对的块通常不会出现在列表里，请用 `:CobolLint` 检查语法。
 
-或使用 `gcc` 手动编译：
+`%` 在上述结构起止关键字间双向跳转，无匹配时回退到 Neovim 行为。`af`/`if`、`ae`/`ie`、`ap`/`ip` 分别是 IF、EVALUATE、PERFORM 的内外文本对象，可用于 Visual（如 `vaf`）或操作符（如 `daf`）。这些能力都需要可用的解析器。
 
-```sh
-gcc -O2 -shared -fPIC \
-  -I tree-sitter-cobol/src -I tree-sitter-cobol/src/tree_sitter \
-  -o ~/.local/share/nvim/site/parser/cobol.so \
-  tree-sitter-cobol/src/parser.c tree-sitter-cobol/src/scanner.c
-```
+### 大纲、折叠与上下文
 
-安装后：
+可选 Aerial 后端提供 Division、Section、Paragraph、程序 ID、FD/SD、01 记录，以及解析器支持的控制结构、分支、文件操作、调用和嵌入 SQL 等层级符号。截图里的 Syms 是另一个由用户自行配置的大纲 UI，不是本插件自带的 Syms 后端。
 
-- **闭合结构胶囊高亮与连接虚线（Structure Scope & Connecting Guide）**：
-  - **怎么看**：当光标位于结构内部或起始/结束行时，**聚焦并仅高亮当前光标所在的单个最近闭合结构**（避免多层嵌套同时画线导致视觉混乱）：
-    1. **闭合控制块**：开始关键字（如 `IF`、`EVALUATE`、`PERFORM`、`READ`、`WRITE`、`SEARCH`、`EXEC SQL`、`XML PARSE`、`JSON PARSE` 等全部 18 种闭合结构）与对应的结束关键字（`END-*`）会显示**带背景色的彩色胶囊，关键字加粗反白（纯白文本）显示**。同时，在开始与结尾关键字的对齐列上，纵向绘制**垂直连接虚线（`┆`）**，贯穿这一代码块的所有内部行，让整段代码的闭合范围一一对应、一目了然。
-    2. **分支关键字（`ELSE` 与 `WHEN`）**：当前激活结构内部的分支（如 `IF` 内部的 `ELSE`，`EVALUATE` 内部的各 `WHEN` 条件）同样会自动佩戴相同深度的反白胶囊，像 HTML 标签树一样清晰划分各分支疆域。
-    3. **专注聚焦（Single Active Group）**：永远只高亮显示当前直接关联的一组匹配结构，无虚线对应或非闭合的内容绝不单独显示孤立色块，彻底杜绝视觉干扰。
-  - **高对比度彩虹深度**：控制结构根据嵌套层级自动应用高对比度明亮色系（Level 1 皇家亮蓝 `#2563eb`/虚线 `#60a5fa`、Level 2 金黄琥珀 `#d97706`/虚线 `#fbbf24`、Level 3 鲜艳深红 `#dc2626`/虚线 `#f87171`、Level 4 翡翠绿 `#16a34a`/虚线 `#4ade80`、Level 5 亮紫 `#9333ea`/虚线 `#c084fc`、Level 6 青蓝 `#0891b2`/虚线 `#22d3ee`），无论深蓝、纯黑还是各种终端主题下均极具辨识度。
-  - **怎么用**：光标移动到任意代码块内时实时自动显示，无需任何额外快捷键。可通过配置项微调：
-    ```lua
-    structure_scope = {
-      enable = true,          -- 启用高亮胶囊与虚线
-      char = "┆",             -- 自定义虚线字符 (如 "┆", "┊", "╎", "│")
-      show_branches = true,   -- 高亮 ELSE 与 WHEN 分支关键字
-    }
-    ```
-- **当前结构链显示（AST Breadcrumb）**：
-  - **怎么看**：在窗口顶部的 Winbar 左侧实时显示当前层级路径：`[ PROCEDURE DIVISION > INPUT-SECTION > VALIDATE-INPUT > IF STATUS = "A" > EVALUATE TXN-TYPE > WHEN "D" ]`。窗口较窄时会自动从左侧平滑折叠（`… > `），优先保障最内层的语句条件完整可见。
-  - **怎么用**：日常编辑自动显示在顶部 Winbar。也可以执行 `:lua require("cobol.ast").show_breadcrumb_float()` 查看完整层级（`q` 或 `<Esc>` 退出）；插件未为它分配默认快捷键。
-- **结构结束关键字提示（Waiting Closures Stack）**：
-  - **怎么看**：顶部 Winbar 的最右端实时列出光标所在**已解析、已配对**结构对应的结束关键字，如 `⌫ END-IF  END-EVALUATE`，由内到外排列。
-  - **怎么用**：运行 `:CobolStructure` 会通过 Neovim 通知显示该列表；执行 `:lua require("cobol.ast").show_waiting_closures_float()` 则打开浮窗。这个列表不是语法错误检测器：缺少 `END-*` 的块通常无法配对，因此不会出现在列表里；请用 `:CobolLint` 检查漏写的终止符。
-- **匹配跳转（`%`）**：
-  - **怎么看**：光标在起始关键字（如 `IF`）或结束关键字（如 `END-IF`）上。
-  - **怎么用**：按键盘上的 `%` 键，光标在 `IF` <-> `END-IF`、`EVALUATE` <-> `END-EVALUATE`、`PERFORM` <-> `END-PERFORM`、`EXEC SQL` <-> `END-EXEC`、`XML PARSE` <-> `END-XML`、`JSON PARSE` <-> `END-JSON`、`CLASS-ID` <-> `END CLASS` 等全部 18 种结构之间双向互跳。
-- **Tree-sitter 文本对象（Text Objects）**：
-  - **怎么用**：
-    - `vaf` / `vif`：选中外层全部（含关键字）/ 仅选中内部代码 `IF ... END-IF`
-    - `vae` / `vie`：选中外层 / 内部 `EVALUATE ... END-EVALUATE`
-    - `vap` / `vip`：选中外层 / 内部 `PERFORM ... END-PERFORM`
-    - 也支持操作符，例如 `daf` 直接删除整个 IF 块，`cif` 清空并重新编写 IF 内部逻辑。
-- **折叠优化（`foldtext`）**：原生 `foldexpr` 为 Division、Section、Paragraph 和数据项建立折叠；如果其他折叠提供者建立了 IF/EVALUATE 等控制块折叠，解析器可为这些折叠生成条件摘要（如 `+-- IF STATUS = "A"`、`+-- EVALUATE TXN-TYPE`、`+-- SQL SELECT`、`+-- XML PARSE`），并非原生就为每个 IF 建立折叠。`foldtext` 是窗口级选项，可能与其他插件冲突，用 `folding.foldtext` 决定归属：`"auto"`（默认，若 nvim-ufo 管理该缓冲区则让给 ufo）、`"plugin"`（始终使用插件的结构摘要）、`"off"`（完全不改动）。
-- **增强大纲（Aerial / Syms Outline）**：按真实父子嵌套关系组织多级树状结构，包含：
-  - Section（如 `INPUT-SECTION`，去除 `SECTION` 后缀）
-  - Paragraph（如 `VALIDATE-INPUT`）
-  - 控制结构（`IF WS-AMOUNT > ZERO`、`EVALUATE TXN-TYPE`、`WHEN "D"`、`PERFORM UNTIL EOF`）
-  - 文件操作（`READ CUSTOMER-FILE`、`WRITE REPORT-LINE`、`REWRITE CUSTOMER-REC`、`DELETE ...`、`START ...`）
-  - 检索（`SEARCH CUSTOMER-TABLE`）
-  - 子程序调用（`CALL CUSM001`，自动去除字符串引号）
-  - 嵌入式 SQL 语句（`SQL SELECT`、`SQL INSERT`、`SQL UPDATE`、`SQL DELETE`、`SQL CURSOR`、`SQL FETCH`、`SQL OPEN`、`SQL CLOSE`、`SQL COMMIT`、`SQL ROLLBACK`）
+插件的原生 `foldexpr` 折叠 Division、Section、Paragraph 和数据项（`za` / `zc` / `zo`）；**不自行创建 IF/EVALUATE 等控制块的折叠**。如果其他折叠提供者生成了控制块折叠，AST 可改善其摘要。`folding.foldtext` 取 `"auto"`（默认，nvim-ufo 管理时让出）、`"plugin"` 或 `"off"`。Winbar、数据父级提示、PIC 大小提示和 01/88 级别高亮提供额外上下文；如需在自有状态栏显示格式、Area、层级、字段及估算大小，可用 `require("cobol.statusline").component()` 或 `.format()`。可选 contextline 集成在对应插件存在时注册。
 
-### 覆盖范围与 Grammar 详情
+### 补全与记录长度估算
 
-内置 extended grammar（位于 `tree-sitter-cobol/`，附带完整测试 corpus）提供原生 AST 节点支持：
-- 标准 COBOL 85 结构：
-  - `IF ... END-IF`
-  - `EVALUATE ... END-EVALUATE`
-  - `PERFORM UNTIL / VARYING ... END-PERFORM`
-  - `SEARCH / SEARCH ALL ... END-SEARCH`
-  - `READ ... END-READ`
-  - `WRITE ... END-WRITE`
-  - `REWRITE ... END-REWRITE`
-  - `DELETE ... END-DELETE`
-  - `START ... END-START`
-  - `STRING ... END-STRING`
-  - `UNSTRING ... END-UNSTRING`
-- 方言与企业级扩展结构：
-  - `XML PARSE ... END-XML`
-  - `JSON PARSE ... END-JSON`
-  - `EXEC SQL ... END-EXEC`
-  - `CLASS-ID ... END CLASS`
-  - `METHOD-ID ... END METHOD`
-  - `FACTORY ... END FACTORY`
-  - `OBJECT ... END OBJECT`
+安装 blink.cmp 后，插件为 `cobol`、`cbl`、`cob` 注册补全源，包括关键字、常见语句片段、当前文件及引用 Copybook 中的数据名和段落等。不安装 blink.cmp 不影响其他功能。补全是基于启发式解析的建议，不等于 COBOL LSP。
 
-### 5. 数据名和关键字补全
+`<leader>cr` / `:CobolCalcRecord` 显示当前数据项或 01 记录的字段/偏移量估算。覆盖 DISPLAY、COMP/BINARY、COMP-3/PACKED-DECIMAL、COMP-1/2、基本字段的 OCCURS、REDEFINES；88 级条件名不占独立存储。**组级 OCCURS 不会使子项总长重复计数，更大的 REDEFINES 覆盖项也不会增加估算总长**。对齐、符号位、方言、ABI 等亦会改变实际存储长度；生产布局须以目标编译器验证。
 
-安装 `blink.cmp` 后，插件会为 `cobol`、`cbl`、`cob` 自动注册补全源。候选包括 COBOL 关键字、动词、子句、代码片段、当前文件的数据名和过程名，以及被引用 Copybook 中的定义。不会启动 COBOL LSP。
+### 诊断、构建与运行
 
-试着输入 `PER`、`WS-`、`COPY`，观察候选；`Tab` / `Shift-Tab` 在候选或 snippet 占位符间移动，按 Enter 接受候选。具体接受键可能由 blink.cmp 配置调整。没有 blink.cmp 时，其他插件功能不受影响。
+自动诊断异步运行 `cobc -fsyntax-only`：默认在保存、编辑防抖（600 ms）及退出 Insert 后检查；可用 `<leader>cl` / `:CobolLint` 立即执行，`<leader>cq` / `:CobolQuickfix` 打开 Quickfix，`:cnext` / `:cprev` 浏览结果。尽可能将 Copybook 错误映射到打开的 Copybook 和主程序的 COPY 行，未保存内容尽可能通过标准输入交给编译器。`:CobolDiagnosticsToggle` 开关自动诊断。没有 `cobc` 时编辑功能仍可使用，但无法完成实际编译检查。
 
-### 6. 折叠与上下文提示
+`:CobolBuild`、`:CobolRun`、`:CobolTest` 异步执行项目命令或 Makefile 的 `build`/`all`、`run`、`test`/`check` 目标；单文件无构建规则时回退到 `cobc` 编译、运行或语法检查。它们读取磁盘文件，执行前先保存。多文件项目应提供构建规则；项目有 build 目标但无 run 入口时不会猜测执行哪个程序。
 
-插件根据 Division、Section、Paragraph 和 DATA 结构设置折叠。使用 Neovim 原生折叠键：
+## 项目配置与默认选项
 
-- `za`：切换当前折叠。
-- `zc`：关闭当前折叠。
-- `zo`：展开当前折叠。
-- `zR`：展开全部。
-- `zM`：折叠全部。
+插件从当前文件向上查找 `.cobol.json`、Makefile 或 Git 根目录。项目 profile 可共享格式、编译器、方言、Copybook 路径及项目命令；缺失时使用插件默认值，JSON 或字段无效时发出警告并回退：
 
-Winbar/状态上下文可显示源格式、Area、程序层级、当前字段 PIC 和字段/记录估算大小。其它状态栏框架也可调用：
-
-~~~lua
-local cobol_status = require("cobol.statusline")
-
--- Heirline、lualine 等组件可调用此函数。
-{ cobol_status.component() }
-~~~
-
-或者由自定义 provider 调用 `require("cobol.statusline").get()`。非 COBOL 缓冲区返回空字符串。
-
-### 7. 诊断、Quickfix、构建与运行
-
-启用自动诊断时，插件异步调用 GnuCOBOL，不阻塞输入。默认保存后和编辑停止一小段时间后检查。`<leader>cl` / `:CobolLint` 可立即检查；`<leader>cq` / `:CobolQuickfix` 打开 Quickfix 列表；`:cnext`、`:cprev` 在项目问题间移动。Copybook 中的错误会尽可能映射到 Copybook 文件和主程序中的 COPY 来源行。
-
-单文件项目没有 Makefile 时：
-
-- `:CobolTest` 用 `cobc -fsyntax-only` 检查语法。
-- `:CobolBuild` 编译当前源文件。
-- `:CobolRun` 编译后运行并清理临时可执行文件。
-
-多文件程序请配置 Makefile 或 `.cobol.json` 命令。项目命令读取磁盘文件，执行前保存当前缓冲区。有 build 规则但没有明确 run 入口时，插件不会猜测要执行哪个程序。
-
-## GnuCOBOL 项目配置
-
-插件沿当前文件目录向上查找 `.cobol.json`、Makefile 或 Git 根目录。建议为固定格式 GnuCOBOL 项目在根目录建立 `.cobol.json`；没有 profile 时会静默使用 Neovim 默认设置，JSON 或字段无效时才显示警告并回退。
-
-~~~json
+```json
 {
   "source_format": "fixed",
-  "dialect": "default",
   "compiler": "cobc",
   "copybook_paths": ["copy", "cpy"],
+  "dialect": "default",
   "warnings": ["all", "no-obsolete"],
   "compiler_args": [],
   "commands": {
@@ -362,309 +121,50 @@ local cobol_status = require("cobol.statusline")
     "test": ["make", "test"]
   }
 }
-~~~
+```
 
-| 项目 | 含义 |
+相对路径从项目根目录解析；命令为参数数组，**不经过 shell**。不需要项目 profile 时，在 lazy.nvim 的 `opts` 配置插件即可。以下按功能列出常用的有效选项及默认值，完整参考见 `:help cobol-configuration`：
+
+| 类别 | 选项及默认值 |
 | --- | --- |
-| `source_format` | `fixed`、`free` 或 `auto`；固定格式项目建议写 `fixed` |
-| `dialect` | 可选 GnuCOBOL 方言，传递为 `-std=...` |
-| `compiler` | 编译器可执行文件或路径，默认 `cobc` |
-| `copybook_paths` | Copybook 目录；相对路径从项目根目录解析 |
-| `warnings` | GnuCOBOL 警告名，例如 `all`、`no-obsolete` |
-| `compiler_args` | 附加参数；每个数组元素是独立参数 |
-| `commands.build/run/test` | 项目命令参数数组；省略时插件查找 Makefile 或使用单文件默认行为 |
+| 视觉 | `columns = {7,8,12,73}`、`show_lines = true`、`char = "│"`、`show_winbar = true`、`show_breadcrumbs = true`、`show_waiting_closures = true` |
+| 结构 | `structure_scope = { enable = true, char = "┆", show_branches = true }` |
+| 数据提示 | `show_hierarchy_hint = true`、`show_pic_size = true`、`highlight_levels = true` |
+| 越界/缩进线 | `highlight_overflow = true`（边界固定为第 72 列）、`show_colorcolumn = false`、`disable_indent_guide = true` |
+| 编辑 | `smart_tab = true`、`keymaps = true`、`source_format = "auto"` |
+| 项目 | `project_root = nil`（无效路径会回退）、`copybook_paths`（含 `.`, `./cpy`, `./copy`, `./copybooks`, `./include`, `../copybooks`, `../include`）、`cobc_command = "cobc"`、`cobc_extra_args = {}` |
+| 折叠 | `folding = { enable = true, foldtext = "auto" }` |
+| 诊断 | `diagnostics = { enable = true, on_save = true, on_change = true, debounce_ms = 600, warnings = {"all", "no-obsolete"}, dialect = nil, copybook_paths = nil }` |
+| 补全 | `completion = { enable = true }`（需安装 blink.cmp） |
 
-命令以参数数组直接执行，不经过 shell 展开。需要管道或环境变量时，把逻辑写进 Makefile，再将 `commands` 指向 `make`。Makefile 自动识别 `build`/`all`、`run`、`test`/`check` 目标。多源文件项目应由自己的构建规则决定链接方式。
+源码中还声明了 `enabled`、`overflow_col`、`smart_comments`，但目前未按其值控制对应行为，请不要依赖这三个开关。`keymaps = false` 关闭插件默认映射；`<leader>` 由用户的 Neovim 配置决定。
 
-~~~make
-.PHONY: build run test
+## 快捷键与命令速查
 
-build:
-	cobc -x -fixed -I copy -o build/main src/MAIN.COB
-
-run: build
-	./build/main
-
-test:
-	cobc -fsyntax-only -fixed -I copy src/MAIN.COB
-~~~
-
-当 Makefile 使用自定义文件名、复杂链接方式或其他构建工具时，在 `.cobol.json` 的 `commands` 中明确指定命令。`run` 不会猜测程序入口。
-
-### 全局插件配置
-
-lazy.nvim 的 `opts` 可覆盖默认值：
-
-~~~lua
-{
-  "iamcheyan/cobol.nvim",
-  ft = { "cobol", "cbl", "cob" },
-  opts = {
-    source_format = "fixed",
-    project_root = nil,
-    copybook_paths = { ".", "./copy", "./cpy" },
-    cobc_command = "cobc",
-    cobc_extra_args = {},
-    smart_tab = true,
-    keymaps = true,
-    structure_scope = { enable = true, char = "┆", show_branches = true },
-    folding = { enable = true },
-    diagnostics = {
-      enable = true,
-      on_save = true,
-      on_change = true,
-      debounce_ms = 600,
-    },
-    completion = { enable = true },
-  },
-}
-~~~
-
-默认还启用列标尺、Winbar、面包屑、数据级别高亮、PIC/记录大小提示和第 72 列越界提示。`columns` 默认是 `{ 7, 8, 12, 73 }`。项目配置比全局选项更适合团队共享；不要把机器专属绝对路径提交到项目文件。
-
-常用有效配置速查（代码中另有 `enabled`、`overflow_col`、`smart_comments` 默认字段，但当前行为未读取这些选项；不要依赖它们关闭插件、修改越界列或关闭注释功能）：
-
-| 选项 | 默认值 | 用途 |
-| --- | --- | --- |
-| `columns` | `{ 7, 8, 12, 73 }` | 标尺列位置 |
-| `show_lines` | `true` | 显示列细线标尺 |
-| `char` | `"│"` | 标尺字符 |
-| `show_winbar` | `true` | 显示顶部结构面包屑和结束关键字提示 |
-| `show_breadcrumbs` | `true` | 显示 Division/Section/Paragraph 面包屑 |
-| `show_waiting_closures` | `true` | 在 Winbar 右端列出已配对块的结束关键字 |
-| `structure_scope.enable` | `true` | 启用最内层已配对结构的范围标记 |
-| `structure_scope.char` | `"┆"` | 结构连接线字符 |
-| `structure_scope.show_branches` | `true` | 显示 ELSE/WHEN 分支标记 |
-| `show_hierarchy_hint` | `true` | 显示数据项父级提示 |
-| `show_pic_size` | `true` | 显示字段/01 记录大小提示 |
-| `highlight_levels` | `true` | 突出显示 01 和 88 级项目 |
-| `show_colorcolumn` | `false` | 额外显示 Neovim ColorColumn；默认不用背景色块 |
-| `highlight_overflow` | `true` | 高亮固定格式第 72 列以后的正文 |
-| `disable_indent_guide` | `true` | 在 COBOL 窗口关闭通用缩进参考线 |
-| `smart_tab` | `true` | 启用固定格式 Tab/反 Tab 列停靠 |
-| `keymaps` | `true` | 安装插件默认 buffer-local 快捷键 |
-| `project_root` | `nil` | 可选项目根目录；未设时自动查找/回退 |
-| `source_format` | `"auto"` | 固定格式、自由格式或自动识别 |
-| `copybook_paths` | `{ ".", "./cpy", "./copy", "./copybooks", "./include", "../copybooks", "../include" }` | Copybook 搜索路径 |
-| `cobc_command` | `"cobc"` | GnuCOBOL 编译器命令 |
-| `cobc_extra_args` | `{}` | 附加 GnuCOBOL 参数 |
-| `folding.enable` | `true` | 启用结构折叠 |
-| `folding.foldtext` | `"auto"` | `foldtext` 归属：`auto` / `plugin` / `off` |
-| `diagnostics.enable` | `true` | 启用编译器诊断 |
-| `diagnostics.on_save` | `true` | 保存时检查 |
-| `diagnostics.on_change` | `true` | 编辑时防抖检查 |
-| `diagnostics.debounce_ms` | `600` | 编辑检查的延迟毫秒数 |
-| `diagnostics.warnings` | `{ "all", "no-obsolete" }` | 默认警告选项 |
-| `diagnostics.dialect` | `nil` | 可选方言；项目 profile 可覆盖 |
-| `diagnostics.copybook_paths` | `nil` | 为空时继承顶层 Copybook 路径 |
-| `completion.enable` | `true` | 启用可选补全源；仍需安装 blink.cmp |
-
-## COBOL 入门练习
-
-下方是本手册的独立练习。如果想按完整课程继续学习，可参阅 [iamcheyan/cobol](https://github.com/iamcheyan/cobol) 的 32 课：`lessons/01_hello-cobol/README.md` 是起点，仓库根目录运行 `make course-check` 验证课程文件；后面的 SQL 课程另有 `make course-check-sql`。这套课程不是插件的安装前提。
-
-建议先安装 GnuCOBOL 并准备一个目录：
-
-~~~sh
-mkdir -p ~/cobol-study
-cd ~/cobol-study
-nvim HELLO.COB
-~~~
-
-每完成一题都用插件功能检查，再用编译器验证。固定格式示例请保持每行开头的空格数量。
-
-### 练习一：输出一句话，熟悉列号和运行
-
-输入并保存为 `HELLO.COB`：
-
-~~~cobol
-       IDENTIFICATION DIVISION.
-       PROGRAM-ID. HELLO.
-       PROCEDURE DIVISION.
-           DISPLAY "HELLO, COBOL".
-           STOP RUN.
-~~~
-
-操作：
-
-1. 用 `g8` 检查程序身份行的起始列，用 `g12` 检查 DISPLAY 语句。
-2. 运行 `:CobolLint`，确认没有语法错误。
-3. 运行 `:CobolRun`，观察输出并理解 `STOP RUN`。
-4. 删除 `DISPLAY` 行末尾的句点再检查，观察报错位置，然后恢复。
-
-### 练习二：声明字段并使用条件名
-
-~~~cobol
-       IDENTIFICATION DIVISION.
-       PROGRAM-ID. GREETING.
-       DATA DIVISION.
-       WORKING-STORAGE SECTION.
-       01 WS-NAME PIC X(20) VALUE "COBOL".
-       01 WS-COUNT PIC 9(3) VALUE ZERO.
-          88 WS-COUNT-IS-ZERO VALUE ZERO.
-       PROCEDURE DIVISION.
-           IF WS-COUNT-IS-ZERO
-               DISPLAY "HELLO, " WS-NAME
-           END-IF.
-           STOP RUN.
-~~~
-
-操作：在 `WS-NAME` 或 `WS-COUNT-IS-ZERO` 上按 `gd`；观察 01/88 高亮和父级提示；输入 `WS-` 看补全候选。`PIC X(20)` 表示 20 个字符位置，`PIC 9(3)` 表示 3 位数字。运行 `:CobolRun`。
-
-思考：如果把 `WS-COUNT` 初始值改成 1，条件名还会成立吗？怎样给 IF 增加 ELSE 分支？
-
-### 练习三：阅读嵌套记录和估算 PIC 长度
-
-~~~cobol
-       DATA DIVISION.
-       WORKING-STORAGE SECTION.
-       01 WS-INPUT-RECORD.
-          05 WS-ACCOUNT-NO PIC 9(6).
-          05 WS-CUSTOMER-NAME PIC X(20).
-          05 WS-BALANCE PIC S9(7)V99 COMP-3.
-          05 WS-ACTIVE PIC X VALUE "Y".
-~~~
-
-操作：
-
-1. 光标放在 `01 WS-INPUT-RECORD`，运行 `:CobolCalcRecord`。
-2. 对照字段列表读偏移量：每个字段从记录开头的哪个字节位置开始。
-3. 光标移到各 PIC 字段，阅读行尾的字段大小提示。
-4. 临时把 `COMP-3` 改为显示用法，再算一次并比较。
-
-计算器适合学习和初步核对。COMP、COMP-3、符号位、SYNC、编译器版本和目标平台可能改变实际布局；生产文件长度应以目标环境的编译器与平台规则为准。
-
-### 练习四：PERFORM、段落跳转和折叠
-
-~~~cobol
-       PROCEDURE DIVISION.
-       MAIN-PROCEDURE.
-           PERFORM 1000-SAY-HELLO
-           STOP RUN.
-       1000-SAY-HELLO.
-           DISPLAY "THIS IS A PARAGRAPH".
-~~~
-
-操作：在 `PERFORM 1000-SAY-HELLO` 的段落名上按 `gd`，按 `<C-o>` 返回，再按 `<C-i>` 前进。将光标放到 `1000-SAY-HELLO.`，按 `za` 折叠或展开段落。用 `gg=G` 重新缩进后检查 Area A/B。
-
-学习目标：`PERFORM` 调用过程段落；段落名是定义；跳转列表可以在调用与定义间来回。插件解析常见结构，不是完整 COBOL 语言服务器。
-
-### 练习五：IF、EVALUATE 和缩进
-
-将 `PROCEDURE DIVISION` 中的逻辑改为：
-
-~~~cobol
-           IF WS-ACTIVE = "Y"
-               EVALUATE WS-COUNT
-                   WHEN ZERO
-                       DISPLAY "EMPTY"
-                   WHEN OTHER
-                       DISPLAY "HAS DATA"
-               END-EVALUATE
-           ELSE
-               DISPLAY "INACTIVE"
-           END-IF.
-~~~
-
-用 `==` 重新缩进当前行；或选择代码后按 `=`。检查 WHEN、ELSE、END-EVALUATE、END-IF 是否在正确层级。然后故意拼错 END-IF，用 `:CobolLint` 看诊断。
-
-### 练习六：建立 Copybook 并从程序跳转
-
-创建 `copy/CUSTOMER-REC.CPY`：
-
-~~~cobol
-       01 CUSTOMER-RECORD.
-          05 CUSTOMER-ID PIC 9(6).
-          05 CUSTOMER-NAME PIC X(30).
-~~~
-
-在主程序 DATA DIVISION 中引用：
-
-~~~cobol
-       COPY "CUSTOMER-REC.CPY".
-~~~
-
-操作：在 COPY 行按 `gf` 打开文件，再按 `<C-o>` 返回；在 `CUSTOMER-ID` 上按 `gd` 跳到定义；按 `K` 预览。增加字段后，回主程序输入字段前缀检查补全。
-
-如果找不到文件，检查项目根目录和 `copybook_paths`。搜索路径也会用于 GnuCOBOL 的 `-I` 参数。
-
-### 练习七：表格 OCCURS 和遍历
-
-在 WORKING-STORAGE 中增加：
-
-~~~cobol
-       01 WS-ITEM-TABLE.
-          05 WS-ITEM OCCURS 3 TIMES.
-             10 WS-ITEM-CODE PIC X(5).
-             10 WS-ITEM-QTY PIC 9(3).
-~~~
-
-用 `gd` 找 `WS-ITEM-QTY`，用折叠查看层级，并运行 `:CobolCalcRecord` 观察 PIC 项估算。尝试为 3 个项目赋值/显示字段，再用 `PERFORM VARYING` 遍历。
-
-计算器为 PIC 字段和常见 OCCURS/REDEFINES 提供估算；复杂嵌套组、`OCCURS DEPENDING ON`、对齐和编译器扩展应通过目标编译器或项目工具确认。
-
-### 练习八：诊断、Quickfix 和错误修复循环
-
-暂时加入一个拼错的字段名：
-
-~~~cobol
-           DISPLAY WS-CUSTOMER-NMAE
-~~~
-
-保存并等待自动诊断，或运行 `:CobolLint`；运行 `:CobolQuickfix`，用 `:cnext` / `:cprev` 浏览；修正字段名，再检查一次确认旧诊断消失。再把错误移到 Copybook 中，观察主程序 COPY 行和已打开 Copybook 中的提示。
-
-没有安装 `cobc` 时，插件仍可提供编辑和导航；诊断与编译器构建需要 GnuCOBOL。
-
-### 练习九：项目构建循环
-
-把练习文件放进 Git 项目根目录，创建 `.cobol.json` 和 Makefile。设置 `source_format` 为 `fixed`、Copybook 目录为 `copy`，依次运行：
-
-~~~vim
-:CobolTest
-:CobolBuild
-:CobolRun
-~~~
-
-修改 Makefile 的 `test` 目标使它检查 Copybook；再制造语法错误，确认 Quickfix 显示位置。最后把 `commands` 改成项目真正的编译、运行和测试参数。
-
-## PIC 与记录长度估算
-
-下面是插件使用的常见近似规则：
-
-| 用法 | 插件估算方式 |
+| 默认映射 | 功能 |
 | --- | --- |
-| `PIC X(20)`、`PIC A(10)` | 每个字符位置按 1 字节 |
-| `PIC 9(5)V99` | `V` 是隐含小数点，不占显示存储；数字按字符位计数 |
-| `PIC S9(7) COMP-3` | 按数字半字节与符号半字节估算压缩十进制 |
-| `PIC 9(n) COMP` / `BINARY` | 按数字位数粗分为 2、4 或 8 字节 |
-| `COMP-1` / `COMP-2` | 常见实现按 4 / 8 字节估算 |
-| 基本字段的 `OCCURS n` | 该字段估算值乘以重复次数；组级 OCCURS 不乘以子字段总量 |
-| `REDEFINES` | 布局表标记与重定义字段共享起始位置；覆盖项更大时不会扩大估算总长 |
-| 88 级条件名 | 不占独立存储 |
+| `g7` / `g8` / `g12` / `g73` | 固定格式列跳转 |
+| `gd` / `gf` / `K` | 定义跳转 / 打开 Copybook / 浮窗预览 |
+| `gcc` / Visual `gc` / `<leader>c*` | 注释切换 |
+| Insert `<Tab>` / `<S-Tab>` | 固定格式列停靠与反向停靠 |
+| `%` | 有解析器时跳到配对结构，无匹配时回退 |
+| Visual/操作符 `af` / `if`、`ae` / `ie`、`ap` / `ip` | IF、EVALUATE、PERFORM 的内外文本对象 |
+| `<leader>cr` / `<leader>cl` / `<leader>cq` | 布局估算 / 立即检查 / 打开 Quickfix |
 
-光标在数据字段上时会显示局部估算；在 01 行运行 `:CobolCalcRecord` 可打开布局表。尤其不要把组级 `OCCURS` 或更大的 `REDEFINES` 覆盖项所得总长当成真实记录长度。估算不是 ABI 保证：不同 GnuCOBOL 版本、编译参数、平台、同步对齐、独立符号位和高级 OCCURS 选项都会影响实际长度。需要精确文件长度时，用目标平台的编译器工具和定义规范验证。
+| 命令 | 功能 |
+| --- | --- |
+| `:CobolGuideToggle` / `:CobolGuideEnable` / `:CobolGuideDisable` | 切换视觉提示及诊断附着（不卸载映射/折叠） |
+| `:CobolToggleComment` / `:CobolFormatCase` | 注释切换 / 范围或全缓冲区保留字大写 |
+| `:CobolGotoDef` / `:CobolGotoCopybook` / `:CobolPreview` | 定义跳转 / Copybook / 预览 |
+| `:CobolCalcRecord` / `:CobolStructure` | 字段估算 / 已配对块结束关键字通知 |
+| `:CobolLint` / `:CobolQuickfix` / `:CobolDiagnosticsToggle` | 语法检查 / Quickfix / 自动诊断开关 |
+| `:CobolBuild` / `:CobolRun` / `:CobolTest` | 构建 / 运行 / 测试 |
 
-## 常见问题
+## 排查与开发
 
-**没有列标尺或快捷键。** 检查 `:set filetype?`；插件只在 `cobol`、`cbl`、`cob` filetype 附着。运行 `:verbose nmap gd` 查看映射来源，并确认全局 `keymaps` 没有关闭。
+- 没有标尺或映射：检查 `:set filetype?`、`:verbose nmap gd` 和 `keymaps`。
+- 没有结构标记或 `%` 配对：检查 COBOL Tree-sitter 解析器；没有大纲则确认 Aerial/Syms 自行安装配置。
+- 没有诊断：检查 `:echo executable('cobc')`、`cobc_command`，并确认未关闭诊断。
+- 找不到 Copybook：检查项目根目录与 `copybook_paths`；估算长度异常时用目标编译器核实。
 
-**`gd` 跳不到变量或跳到多个候选。** 检查定义是否符合 COBOL 数据级别/段落格式、Copybook 是否由 `COPY` 引用、搜索目录是否正确。多个同名定义会要求你选择。按 `<C-o>` 回到跳转前位置。
-
-**`gf` 找不到 Copybook。** 检查文件名和大小写；Linux 文件系统大小写敏感。确认 `.cobol.json` 路径相对项目根目录，且 Copybook 位于搜索目录。
-
-**没有自动诊断。** 运行 `:echo executable('cobc')`；返回 0 表示 Neovim 没在 PATH 找到编译器。再检查 `:CobolDiagnosticsToggle` 状态及 `diagnostics.enable`。
-
-**没有 Aerial 大纲或 Blink 补全。** 它们是可选插件；分别检查对应插件是否安装并加载。它们不是 `cobol.nvim` 的硬依赖。
-
-**缩进看起来不对。** 缩进是启发式的；确认源格式为 fixed，并检查列 1–7、72 列边界、续行和编译器诊断。未识别的写法要手动校正。
-
-**记录字节数和实际文件长度不同。** 计算器是学习辅助和近似估算。检查方言、USAGE、SIGN、SYNC、REDEFINES、OCCURS 和目标 ABI，不要只根据虚拟提示修改生产记录布局。
-
-## 文档与开发
-
-- 本文 `README.zh-CN.md`：完整中文学习和使用手册。
-- `README.md` / `README.ja.md`：英文和日文入口。
-- `doc/cobol.nvim.txt`：Neovim 原生帮助页，使用 `:help cobol.nvim`、`:help cobol-commands` 等标签。
-- 开发者验证：在插件根目录运行 `./scripts/test.sh`。
-
-本项目采用 MIT License，见 [LICENSE](LICENSE)。
+仓库根目录运行 `./scripts/test.sh` 执行插件测试（未安装 Aerial 时其专用测试会跳过）。许可证见 [LICENSE](LICENSE)。
