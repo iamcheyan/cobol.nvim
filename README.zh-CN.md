@@ -218,17 +218,25 @@ gcc -O2 -shared -fPIC \
 
 安装后：
 
-- **彩虹闭合配对（Rainbow Closure Matching）**：当光标位于结构起始或结束节点时，自动高亮对应的开始与结束关键字，并根据实际嵌套深度应用彩虹颜色（Level 1 蓝色 `#61afef`、Level 2 黄色 `#e5c07b`、Level 3 红色 `#e06c75`、Level 4 绿色 `#98c379`、Level 5 紫色 `#c678dd`、Level 6 青色 `#56b6c2`）。支持全部闭合结构：IF、EVALUATE、PERFORM (UNTIL/VARYING)、SEARCH (及 SEARCH ALL)、READ、WRITE、REWRITE、DELETE、START、STRING、UNSTRING、XML PARSE、JSON PARSE、EXEC SQL 及 OO COBOL（CLASS-ID、METHOD-ID、FACTORY、OBJECT）。
-- **当前结构链显示（AST Breadcrumb）**：实时计算 Division > Section > Paragraph > IF > EVALUATE > WHEN 完整层级链条。内置 grammar 的语句、头部与 `END-*` 是同级兄弟节点，因此结构链改为依据配对范围重建（不再依赖祖先遍历）：`WHEN` 与所属 `IF`/`EVALUATE` 按范围解析，Division/Section/Paragraph 只取头部行本身。接口：
-  - Winbar：配置 `show_breadcrumbs = true` 自动集成；窗口较窄时自动从左侧裁剪，保证最内层结构始终可见。
-  - 状态栏：`require("cobol.ast").statusline(bufnr)` 返回面包屑组件。
-  - 浮动窗口：`require("cobol.ast").show_breadcrumb_float()` 弹出交互式全层级悬浮窗（按 `q` 或 `<Esc>` 退出）。
-- **待闭合栈（Outstanding Closures Stack）**：运行 `:CobolStructure` 或调用 `require("cobol.ast").show_waiting_closures_float()`，查看当前光标处所有尚未闭合的控制块，最内层排在最前（如 `END-EVALUATE`、`END-IF`、`END-PERFORM`、`END-EXEC`）。配置 `show_waiting_closures = true`（默认）时会同时在 winbar 右端实时显示，并随光标移动更新。
-- **匹配跳转（`%`）**：在起始关键字与对应 `END-*` 之间双向互跳（如 `IF` <-> `END-IF`、`EVALUATE` <-> `END-EVALUATE`、`PERFORM` <-> `END-PERFORM`、`EXEC SQL` <-> `END-EXEC`、`XML PARSE` <-> `END-XML`、`JSON PARSE` <-> `END-JSON`、`CLASS-ID` <-> `END CLASS` 等）。
+- **闭合结构胶囊高亮与连接虚线（Structure Scope & Connecting Guide）**：
+  - **怎么看**：当光标位于结构内部或起始/结束行时，开始关键字（如 `IF`、`EVALUATE`、`PERFORM`、`EXEC SQL`）与对应的结束关键字（`END-*`）会显示**带背景色的彩色胶囊，关键字加粗反白（纯白文本）显示**。同时，在开始与结尾关键字的对齐列上，纵向绘制**垂直连接虚线（`┆`）**，贯穿这一代码块的所有内部行，让整段代码的闭合范围一目了然。
+  - **彩虹深度**：根据嵌套层级自动应用彩虹色系（Level 1 蓝底 `#204a87`/虚线 `#61afef`、Level 2 金黄底 `#8f5902`/虚线 `#e5c07b`、Level 3 红底 `#a40000`/虚线 `#e06c75`、Level 4 绿底 `#2e7d32`/虚线 `#98c379`、Level 5 紫底 `#7b1fa2`/虚线 `#c678dd`、Level 6 青底 `#00838f`/虚线 `#56b6c2`）。
+  - **怎么用**：光标移动到任意代码块内时实时自动显示，无需任何额外快捷键。可通过配置 `structure_scope = { enable = true, char = "┆" }` 自定义虚线样式（例如更换为 `"┊"` 或 `"╎"`）。
+- **当前结构链显示（AST Breadcrumb）**：
+  - **怎么看**：在窗口顶部的 Winbar 左侧实时显示当前层级路径：`[ PROCEDURE DIVISION > INPUT-SECTION > VALIDATE-INPUT > IF STATUS = "A" > EVALUATE TXN-TYPE > WHEN "D" ]`。窗口较窄时会自动从左侧平滑折叠（`… > `），优先保障最内层的语句条件完整可见。
+  - **怎么用**：日常编辑自动常驻于顶部 Winbar。若想在居中弹窗中细致查看，按快捷键调用 `require("cobol.ast").show_breadcrumb_float()` 即可弹出交互式全层级悬浮窗（按 `q` 或 `<Esc>` 退出）。
+- **待闭合栈（Outstanding Closures Stack）**：
+  - **怎么看**：顶部 Winbar 的最右端实时展示当前光标处所有尚未闭合的控制块标签，如 `⌫ END-IF  END-EVALUATE`，最内层的待闭合块显示在最前。
+  - **怎么用**：敲代码时余光看一眼右上方即可知道当前还有几个块漏写了 `END-*`。运行 `:CobolStructure` 或调用 `require("cobol.ast").show_waiting_closures_float()` 也可以随时唤出居中浮窗清单。
+- **匹配跳转（`%`）**：
+  - **怎么看**：光标在起始关键字（如 `IF`）或结束关键字（如 `END-IF`）上。
+  - **怎么用**：按键盘上的 `%` 键，光标在 `IF` <-> `END-IF`、`EVALUATE` <-> `END-EVALUATE`、`PERFORM` <-> `END-PERFORM`、`EXEC SQL` <-> `END-EXEC`、`XML PARSE` <-> `END-XML`、`JSON PARSE` <-> `END-JSON`、`CLASS-ID` <-> `END CLASS` 等全部 18 种结构之间双向互跳。
 - **Tree-sitter 文本对象（Text Objects）**：
-  - `vaf` / `vif`：选中外层 / 内部 `IF ... END-IF`
-  - `vae` / `vie`：选中外层 / 内部 `EVALUATE ... END-EVALUATE`
-  - `vap` / `vip`：选中外层 / 内部 `PERFORM ... END-PERFORM`
+  - **怎么用**：
+    - `vaf` / `vif`：选中外层全部（含关键字）/ 仅选中内部代码 `IF ... END-IF`
+    - `vae` / `vie`：选中外层 / 内部 `EVALUATE ... END-EVALUATE`
+    - `vap` / `vip`：选中外层 / 内部 `PERFORM ... END-PERFORM`
+    - 也支持操作符，例如 `daf` 直接删除整个 IF 块，`cif` 清空并重新编写 IF 内部逻辑。
 - **折叠优化（`foldtext`）**：折叠摘要显示结构关键词与条件摘要（如 `+-- IF STATUS = "A"`、`+-- EVALUATE TXN-TYPE`、`+-- SQL SELECT`、`+-- XML PARSE`），替代仅显示行数的传统显示。`foldtext` 是窗口级选项，可能与其他插件冲突，用 `folding.foldtext` 决定归属：`"auto"`（默认，若 nvim-ufo 管理该缓冲区则让给 ufo）、`"plugin"`（始终使用插件的结构摘要）、`"off"`（完全不改动）。
 - **增强大纲（Aerial / Syms Outline）**：按真实父子嵌套关系组织多级树状结构，包含：
   - Section（如 `INPUT-SECTION`，去除 `SECTION` 后缀）

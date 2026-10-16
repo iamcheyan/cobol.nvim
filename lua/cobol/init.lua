@@ -11,6 +11,10 @@ local default_config = {
   show_winbar = true,          -- 顶部打孔卡刻度
   show_breadcrumbs = true,     -- 顶部 Winbar 实时显示 Division > Section > Paragraph 面包屑
   show_waiting_closures = true,-- Winbar 右端显示待闭合栈 (END-IF · END-EVALUATE …)
+  structure_scope = {
+    enable = true,              -- 启用闭合结构范围高亮与垂直连接虚线
+    char = "┆",                 -- 闭合连接虚线字符 (可选 "┆", "┊", "╎", "│")
+  },
   show_hierarchy_hint = true,  -- DATA DIVISION 行尾显示父级结构回溯 (← 05 PARENT)
   show_pic_size = true,        -- DATA DIVISION 实时显示字段字节数与 01 Record 内存总计
   highlight_levels = true,     -- 突出高亮 88 级条件名与 01 级记录

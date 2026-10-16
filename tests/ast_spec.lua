@@ -401,6 +401,35 @@ local ensure_ok = ast.ensure_parser(function(ok)
   assert(ok, "ensure_parser callback must receive true when parser is present")
 end)
 assert(ensure_ok == true, "ensure_parser must return true when parser is present")
-assert(ensure_called, "ensure_parser callback must be invoked")
+-- 16. Structure scope: highlights and dashed connecting lines
+vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+  "       IDENTIFICATION DIVISION.",
+  "       PROGRAM-ID. SCOPETEST.",
+  "       PROCEDURE DIVISION.",
+  "       MAIN-PARA.",
+  "           IF A > 1",
+  "               DISPLAY \"INSIDE\"",
+  "           END-IF.",
+})
+vim.api.nvim_win_set_cursor(0, { 6, 20 })
+local scope_state = ast.update(0, 0)
+assert(#scope_state.active == 1, "One active structure should be found at cursor")
+local marks = vim.api.nvim_buf_get_extmarks(0, vim.api.nvim_create_namespace("cobol_ast_navigation"), 0, -1, { details = true })
+local has_opening_badge = false
+local has_closing_badge = false
+local has_connecting_line = false
+for _, m in ipairs(marks) do
+  local row, col, details = m[2], m[3], m[4]
+  if details.hl_group and details.hl_group:find("CobolStructure%d") then
+    if row == 4 then has_opening_badge = true end
+    if row == 6 then has_closing_badge = true end
+  end
+  if details.virt_text and details.virt_text[1] and details.virt_text[1][1]:find("┆") then
+    if row == 5 and col == 11 then has_connecting_line = true end
+  end
+end
+assert(has_opening_badge, "Opening IF should have structure badge")
+assert(has_closing_badge, "Closing END-IF should have structure badge")
+assert(has_connecting_line, "Body line should have connecting dashed line")
 
 print("ast_spec: OK")

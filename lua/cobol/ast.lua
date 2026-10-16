@@ -2,6 +2,14 @@
 -- AST features deliberately have no regex parser fallback.
 local M = {}
 local palette = { "#61afef", "#e5c07b", "#e06c75", "#98c379", "#c678dd", "#56b6c2" }
+local structure_palette = {
+  { fg = "#ffffff", bg = "#204a87", line = "#61afef" }, -- Level 1: Blue
+  { fg = "#ffffff", bg = "#8f5902", line = "#e5c07b" }, -- Level 2: Gold/Yellow
+  { fg = "#ffffff", bg = "#a40000", line = "#e06c75" }, -- Level 3: Red
+  { fg = "#ffffff", bg = "#2e7d32", line = "#98c379" }, -- Level 4: Green
+  { fg = "#ffffff", bg = "#7b1fa2", line = "#c678dd" }, -- Level 5: Purple
+  { fg = "#ffffff", bg = "#00838f", line = "#56b6c2" }, -- Level 6: Cyan
+}
 
 local kinds = {
   if_header = { name = "IF", ending = "END-IF", end_node = "END_IF" },
@@ -519,8 +527,9 @@ function M.aerial_items(bufnr)
 end
 
 function M.setup_highlights()
-  for i, color in ipairs(palette) do
-    vim.api.nvim_set_hl(0, "CobolStructure" .. i, { fg = color, bold = true, default = true })
+  for i, entry in ipairs(structure_palette) do
+    vim.api.nvim_set_hl(0, "CobolStructure" .. i, { fg = entry.fg, bg = entry.bg, bold = true, default = true })
+    vim.api.nvim_set_hl(0, "CobolStructureLine" .. i, { fg = entry.line, bold = true, default = true })
   end
   vim.api.nvim_set_hl(0, "CobolWaitingClosure", { fg = "#e5c07b", default = true })
 end
@@ -627,8 +636,17 @@ function M.update(bufnr, winid)
   local ns = vim.api.nvim_create_namespace("cobol_ast_navigation")
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
   local active = M.at_cursor(bufnr, crow, ccol)
+
+  local ok_cobol, cobol_mod = pcall(require, "cobol")
+  local scope_cfg = (ok_cobol and cobol_mod.config and cobol_mod.config.structure_scope) or {}
+  local show_line = scope_cfg.enable ~= false
+  local line_char = scope_cfg.char or "┆"
+
   for _, item in ipairs(active) do
-    local hl = "CobolStructure" .. ((item.depth - 1) % #palette + 1)
+    local idx = ((item.depth - 1) % #structure_palette + 1)
+    local hl = "CobolStructure" .. idx
+    local hl_line = "CobolStructureLine" .. idx
+
     vim.api.nvim_buf_set_extmark(bufnr, ns, item.start_row, item.start_col, {
       end_row = item.start_row,
       end_col = math.min(item.start_col + #item.name, item.end_col),
@@ -642,6 +660,27 @@ function M.update(bufnr, winid)
         hl_group = hl,
         priority = 140,
       })
+
+      if show_line and item.close_row > item.start_row + 1 then
+        local col = item.start_col
+        for r = item.start_row + 1, item.close_row - 1 do
+          local line_str = vim.api.nvim_buf_get_lines(bufnr, r, r + 1, false)[1] or ""
+          if #line_str < col then
+            local pad = string.rep(" ", col - #line_str)
+            vim.api.nvim_buf_set_extmark(bufnr, ns, r, #line_str, {
+              virt_text = { { pad .. line_char, hl_line } },
+              virt_text_pos = "overlay",
+              priority = 135,
+            })
+          elseif line_str:sub(col + 1, col + 1) == " " then
+            vim.api.nvim_buf_set_extmark(bufnr, ns, r, col, {
+              virt_text = { { line_char, hl_line } },
+              virt_text_pos = "overlay",
+              priority = 135,
+            })
+          end
+        end
+      end
     end
   end
   local breadcrumb = table.concat(M.chain(bufnr, crow, ccol) or {}, " > ")
