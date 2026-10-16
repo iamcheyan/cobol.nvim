@@ -15570,6 +15570,50 @@
         ]
       }
     },
+    "_sql_word": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 2,
+        "content": {
+          "type": "PATTERN",
+          "value": "([0-9][a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*)|([a-zA-Z][a-zA-Z0-9-]*)"
+        }
+      }
+    },
+    "_sql_rest": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": -1,
+        "content": {
+          "type": "PATTERN",
+          "value": "[^\\s]+"
+        }
+      }
+    },
+    "_sql_dot": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 1,
+        "content": {
+          "type": "PATTERN",
+          "value": "\\."
+        }
+      }
+    },
+    "_sql_keyword": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 3,
+        "content": {
+          "type": "PATTERN",
+          "value": "[sS][eE][lL][eE][cC][tT]|[iI][nN][sS][eE][rR][tT]|[uU][pP][dD][aA][tT][eE]|[dD][eE][lL][eE][tT][eE]|[cC][uU][rR][sS][oO][rR]|[fF][eE][tT][cC][hH]|[oO][pP][eE][nN]|[cC][lL][oO][sS][eE]|[cC][oO][mM][mM][iI][tT]|[rR][oO][lL][lL][bB][aA][cC][kK]"
+        }
+      }
+    },
     "exec_sql_statement": {
       "type": "PREC",
       "value": 2,
@@ -15591,7 +15635,24 @@
               "members": [
                 {
                   "type": "SYMBOL",
-                  "name": "WORD"
+                  "name": "_sql_keyword"
+                },
+                {
+                  "type": "ALIAS",
+                  "content": {
+                    "type": "SYMBOL",
+                    "name": "_sql_word"
+                  },
+                  "named": true,
+                  "value": "WORD"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_sql_rest"
+                },
+                {
+                  "type": "SYMBOL",
+                  "name": "_sql_dot"
                 },
                 {
                   "type": "SYMBOL",
@@ -17228,8 +17289,15 @@
       "value": "[eE][nN][dD]-[jJ][sS][oO][nN]"
     },
     "_END_EXEC": {
-      "type": "PATTERN",
-      "value": "[eE][nN][dD]-[eE][xX][eE][cC]"
+      "type": "TOKEN",
+      "content": {
+        "type": "PREC",
+        "value": 4,
+        "content": {
+          "type": "PATTERN",
+          "value": "[eE][nN][dD]-[eE][xX][eE][cC]"
+        }
+      }
     },
     "_END_CLASS": {
       "type": "PATTERN",

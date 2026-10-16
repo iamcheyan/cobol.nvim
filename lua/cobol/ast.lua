@@ -67,10 +67,23 @@ local function format_structure_label(node, bufnr, default_name)
   elseif default_name == "EXEC SQL" then
     local upper = raw:upper()
     local act = upper:match("EXEC%s+SQL%s+([A-Z]+)") or "EXEC"
-    for _, known in ipairs({ "SELECT", "INSERT", "UPDATE", "DELETE", "CURSOR", "FETCH", "OPEN", "CLOSE", "COMMIT", "ROLLBACK" }) do
-      if act:find(known, 1, true) then
-        act = known
+    local known_verbs = { "SELECT", "INSERT", "UPDATE", "DELETE", "CURSOR", "FETCH", "OPEN", "CLOSE", "COMMIT", "ROLLBACK" }
+    local is_known = false
+    for _, known in ipairs(known_verbs) do
+      if act == known then
+        is_known = true
         break
+      end
+    end
+    if not is_known then
+      -- `DECLARE C1 CURSOR FOR SELECT ...` and other shaped statements: label the
+      -- verb the statement acts on, taking the earliest one that appears.
+      local best_pos
+      for _, known in ipairs(known_verbs) do
+        local pos = upper:find(known, 1, true)
+        if pos and (not best_pos or pos < best_pos) then
+          best_pos, act = pos, known
+        end
       end
     end
     return (act == "SELECT" or act == "UPDATE" or act == "INSERT" or act == "DELETE")
@@ -162,6 +175,141 @@ function M.closure_stack(bufnr, row, col)
     out[#out + 1] = item.ending .. " (" .. item.label .. ")"
   end
   return out
+end
+
+-- The vendored grammar is flat on purpose: headers (`if_header`,
+-- `evaluate_header`, `paragraph_header`, `section_header`, a `when` clause) and
+-- their bodies and `END-*` tokens are all siblings inside the division. Tree
+-- ancestry therefore says nothing about the enclosing control flow -- walking
+-- `node:parent()` from a body statement only ever reaches the division, whose
+-- node text spans the whole division. The chain is rebuilt from sibling rows
+-- plus the paired structures that M.structures() already computes.
+local division_types = {
+  identification_division = true,
+  environment_division = true,
+  data_division = true,
+  procedure_division = true,
+}
+
+local function division_of(root, row)
+  local found
+  local function walk(node)
+    for child in node:iter_children() do
+      if division_types[child:type()] then
+        local sr, _, er = child:range()
+        if row >= sr and row <= er then
+          found = child
+        end
+      end
+      walk(child)
+    end
+  end
+  walk(root)
+  return found
+end
+
+-- Only the header line is a useful label: the division node spans the whole
+-- division, so reading the node text would dump the entire program.
+local function header_label(bufnr, row, kind)
+  local line = (vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)[1] or ""):upper()
+  local name
+  if kind == "division" then
+    name = line:match("([%w%-]+)%s+DIVISION")
+    return name and (name .. " DIVISION") or nil
+  elseif kind == "section" then
+    name = line:match("([%w%-]+)%s+SECTION")
+    return name
+  end
+  return line:match("^%s*([%w%-]+)%s*%.")
+end
+
+-- The `when` clause the cursor sits in, inside the given EVALUATE structure. The
+-- grammar keeps `when` as a sibling of the statements it governs, so the clause
+-- is looked up by row within the range of the enclosing EVALUATE.
+local function when_label_at(root, bufnr, item, row)
+  local last_row = item.close_row or item.end_row
+  local best_node, best_row
+  local function walk(node)
+    if node:type() == "when" then
+      local start_row = node:start()
+      if start_row >= item.start_row and start_row <= last_row and start_row <= row then
+        if not best_row or start_row >= best_row then
+          best_node, best_row = node, start_row
+        end
+      end
+    end
+    for child in node:iter_children() do
+      walk(child)
+    end
+  end
+  walk(root)
+  return best_node and format_structure_label(best_node, bufnr, "WHEN") or nil
+end
+
+-- Breadcrumb parts, outermost first, for the statement at row/col.
+function M.chain(bufnr, row, col)
+  bufnr = bufnr or 0
+  if bufnr == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  if row == nil then
+    local pos = vim.api.nvim_win_get_cursor(0)
+    row, col = pos[1] - 1, pos[2]
+  end
+  col = col or 0
+  local root = M.parser(bufnr)
+  if not root then
+    return nil
+  end
+
+  local parts = {}
+  local division = division_of(root, row)
+  if division then
+    local label = header_label(bufnr, division:start(), "division")
+    if label then
+      parts[#parts + 1] = label
+    end
+    local section_row, paragraph_row
+    for child in division:iter_children() do
+      local ctype = child:type()
+      local start_row = child:start()
+      if start_row <= row then
+        if ctype == "section_header" then
+          section_row = start_row
+          paragraph_row = nil
+        elseif ctype == "paragraph_header" then
+          paragraph_row = start_row
+        end
+      end
+    end
+    if section_row then
+      local section = header_label(bufnr, section_row, "section")
+      if section then
+        parts[#parts + 1] = section
+      end
+    end
+    if paragraph_row then
+      local paragraph = header_label(bufnr, paragraph_row, "paragraph")
+      if paragraph then
+        parts[#parts + 1] = paragraph
+      end
+    end
+  end
+
+  -- Enclosing structures, outermost first, with the WHEN clause of each
+  -- EVALUATE inserted directly after it.
+  local active = M.at_cursor(bufnr, row, col)
+  for i = #active, 1, -1 do
+    local item = active[i]
+    parts[#parts + 1] = item.label
+    if item.name == "EVALUATE" then
+      local when_label = when_label_at(root, bufnr, item, row)
+      if when_label then
+        parts[#parts + 1] = when_label
+      end
+    end
+  end
+  return parts
 end
 
 function M.textobject(bufnr, row, col, kind, inner)
@@ -367,11 +515,26 @@ end
 function M.update(bufnr, winid)
   bufnr = bufnr or 0
   winid = winid or vim.api.nvim_get_current_win()
+  -- 0 means "current buffer" for the Neovim API, but it must be resolved before
+  -- comparing against the buffer a window shows.
+  if bufnr == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
   if not M.parser(bufnr) then return nil end
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  local crow, ccol = 0, 0
+  if winid and vim.api.nvim_win_is_valid(winid) and vim.api.nvim_win_get_buf(winid) == bufnr then
+    local cursor = vim.api.nvim_win_get_cursor(winid)
+    crow, ccol = cursor[1] - 1, cursor[2]
+  end
+  -- Statusline/winbar evaluation can reach this with a window that has no
+  -- usable cursor for the buffer; treesitter rejects negative positions, so
+  -- clamp instead of throwing from a redraw.
+  crow = math.max(0, math.min(crow, line_count - 1))
+  ccol = math.max(0, ccol)
+
   local ns = vim.api.nvim_create_namespace("cobol_ast_navigation")
   vim.api.nvim_buf_clear_namespace(bufnr, ns, 0, -1)
-  local cursor = vim.api.nvim_win_get_cursor(winid)
-  local crow, ccol = cursor[1] - 1, cursor[2]
   local active = M.at_cursor(bufnr, crow, ccol)
   for _, item in ipairs(active) do
     local hl = "CobolStructure" .. ((item.depth - 1) % #palette + 1)
@@ -390,25 +553,8 @@ function M.update(bufnr, winid)
       })
     end
   end
-  local ancestors, node = {}, vim.treesitter.get_node({ bufnr = bufnr, pos = { crow, ccol } })
-  local when_clause = nil
-  while node do
-    local kind = node:type()
-    if kind == "procedure_division" or kind == "section_header" or kind == "paragraph_header" then
-      table.insert(ancestors, 1, clean_label(node_text(node, bufnr)))
-    elseif kind == "when" and not when_clause then
-      when_clause = format_structure_label(node, bufnr, "WHEN")
-    end
-    node = node:parent()
-  end
-  for i = #active, 1, -1 do
-    ancestors[#ancestors + 1] = active[i].label
-  end
-  if when_clause then
-    ancestors[#ancestors + 1] = when_clause
-  end
+  local breadcrumb = table.concat(M.chain(bufnr, crow, ccol) or {}, " > ")
   local waiting = M.closure_stack(bufnr, crow, ccol)
-  local breadcrumb = table.concat(ancestors, " > ")
   if winid and vim.api.nvim_win_is_valid(winid) then
     vim.w[winid].cobol_ast_breadcrumb = breadcrumb
     vim.w[winid].cobol_waiting_closures = waiting

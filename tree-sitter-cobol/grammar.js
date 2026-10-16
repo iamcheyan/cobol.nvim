@@ -2757,11 +2757,45 @@ module.exports = grammar({
       ))
     )),
 
+    // The tokens between `EXEC SQL` and `END-EXEC` are SQL, not COBOL, so they
+    // cannot be enumerated exhaustively: a statement keyword such as `SET`
+    // (reserved elsewhere in this grammar) may appear in the body.
+    // The extra tokens below keep the body permissive without changing its
+    // shape:
+    //
+    // * `_sql_word` is a word-shaped token that is *not* the grammar's word
+    //   token. Keywords that can follow the statement (every statement
+    //   keyword, since statements are siblings here) enter the lexer state
+    //   through the rule's lookahead and are substituted for the word token
+    //   there; a substituted keyword can never be shifted inside the SQL body.
+    //   Lexing words with this token bypasses that substitution, so any word is
+    //   accepted. It is aliased to `WORD` so identifiers keep their usual node
+    //   type. `$.WORD` cannot stay in the body for this reason: it re-enables
+    //   the substitution and the body falls apart on the first reserved word.
+    // * `_sql_keyword` keeps the SQL verbs hidden, exactly like the
+    //   fine-grained `_SELECT` ... `_ROLLBACK` alternatives below (which are
+    //   kept, but are shadowed by it inside the body).
+    // * `_sql_rest` is a last-resort catch-all with the lowest lexical
+    //   precedence: it only wins where no fine-grained alternative can match
+    //   (for example an apostrophe inside a literal), so stray bytes cannot
+    //   derail the statement.
+    _sql_word: $ => token(prec(2, /([0-9][a-zA-Z0-9-]*[a-zA-Z][a-zA-Z0-9-]*)|([a-zA-Z][a-zA-Z0-9-]*)/)),
+    _sql_rest: $ => token(prec(-1, /[^\s]+/)),
+    _sql_dot: $ => token(prec(1, /\./)),
+    _sql_keyword: $ => token(prec(3, /[sS][eE][lL][eE][cC][tT]|[iI][nN][sS][eE][rR][tT]|[uU][pP][dD][aA][tT][eE]|[dD][eE][lL][eE][tT][eE]|[cC][uU][rR][sS][oO][rR]|[fF][eE][tT][cC][hH]|[oO][pP][eE][nN]|[cC][lL][oO][sS][eE]|[cC][oO][mM][mM][iI][tT]|[rR][oO][lL][lL][bB][aA][cC][kK]/)),
+
     exec_sql_statement: $ => prec(2, seq(
       $._EXEC,
       $._SQL,
       repeat1(choice(
-        $.WORD,
+        $._sql_keyword,
+        alias($._sql_word, $.WORD),
+        $._sql_rest,
+        // `period` reaches the body's lexer state through the statement
+        // terminator lookahead and outranks `_sql_rest`; a token the body
+        // already accepts cannot shadow it, hence this dedicated one. SQL
+        // qualified names (`A.B`) put a `.` inside the body.
+        $._sql_dot,
         $.string,
         $.number,
         ':', ',', '(', ')', '=', '<', '>', '*', '+', '-', ';',
@@ -3076,7 +3110,9 @@ module.exports = grammar({
     _END_WRITE: $ => /[eE][nN][dD]-[wW][rR][iI][tT][eE]/,
     _END_XML: $ => /[eE][nN][dD]-[xX][mM][lL]/,
     _END_JSON: $ => /[eE][nN][dD]-[jJ][sS][oO][nN]/,
-    _END_EXEC: $ => /[eE][nN][dD]-[eE][xX][eE][cC]/,
+    // Must outrank `_sql_keyword`, `_sql_word` and `_sql_rest` so that the
+    // permissive EXEC SQL body still terminates at END-EXEC.
+    _END_EXEC: $ => token(prec(4, /[eE][nN][dD]-[eE][xX][eE][cC]/)),
     _END_CLASS: $ => /[eE][nN][dD][ \t]+[cC][lL][aA][sS][sS]/,
     _END_METHOD: $ => /[eE][nN][dD][ \t]+[mM][eE][tT][hH][oO][dD]/,
     _END_FACTORY: $ => /[eE][nN][dD][ \t]+[fF][aA][cC][tT][oO][rR][yY]/,

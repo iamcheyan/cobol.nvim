@@ -79,7 +79,7 @@ The defaults are suitable for a small project. A project-specific setup can look
     cobc_command = "cobc",
     cobc_extra_args = {},
     source_format = "auto",
-    folding = { enable = true },
+    folding = { enable = true, foldtext = "auto" },
     diagnostics = { enable = true, debounce_ms = 600 },
   },
 }
@@ -139,11 +139,11 @@ gcc -O2 -shared -fPIC \
 With the parser installed:
 
 - **Rainbow Closure Matching**: When the cursor is on an opening or closing node, the pair is highlighted using extmarks colored by real nesting depth (Level 1 blue `#61afef`, Level 2 yellow `#e5c07b`, Level 3 red `#e06c75`, Level 4 green `#98c379`, Level 5 purple `#c678dd`, Level 6 cyan `#56b6c2`). Paired structures include IF, EVALUATE, inline PERFORM (UNTIL/VARYING), SEARCH (and SEARCH ALL), READ, WRITE, REWRITE, DELETE, START, STRING, UNSTRING, XML PARSE, JSON PARSE, EXEC SQL, and OO COBOL (CLASS-ID, METHOD-ID, FACTORY, OBJECT).
-- **AST Breadcrumb**: Tracks the full structural hierarchy (`Division > Section > Paragraph > IF > EVALUATE > WHEN`). Stable documented APIs:
-  - Winbar: Automatically integrated when `show_breadcrumbs = true` in config.
+- **AST Breadcrumb**: Tracks the full structural hierarchy (`Division > Section > Paragraph > IF > EVALUATE > WHEN`). The vendored grammar keeps statements, headers and `END-*` tokens as flat siblings, so the chain is rebuilt from the paired structure ranges instead of tree ancestry: a `WHEN` clause and its enclosing `IF`/`EVALUATE` are resolved by range, and a division, section or paragraph contributes only its header line. Exposed through:
+  - Winbar: Automatically integrated when `show_breadcrumbs = true` in config. The breadcrumb is clipped from the left when the window is narrow, so the innermost structures stay visible.
   - Statusline: `require("cobol.ast").statusline(bufnr)` returns formatted breadcrumb string.
   - Floating Window: `require("cobol.ast").show_breadcrumb_float()` displays the full chain in an interactive floating popup (`q` or `<Esc>` to dismiss).
-- **Waiting Closures Stack**: `:CobolStructure` or `require("cobol.ast").show_waiting_closures_float()` displays blocks awaiting closure at the cursor position, ordered innermost first (e.g. `END-EVALUATE`, `END-IF`, `END-PERFORM`, `END-EXEC`).
+- **Waiting Closures Stack**: `:CobolStructure` or `require("cobol.ast").show_waiting_closures_float()` displays blocks awaiting closure at the cursor position, ordered innermost first (e.g. `END-EVALUATE`, `END-IF`, `END-PERFORM`, `END-EXEC`). With `show_waiting_closures = true` the same stack is drawn on the right edge of the winbar and follows the cursor.
 - **Matching Jump (`%`)**: Press `%` to jump bidirectionally between block starts and their corresponding `END-*` keywords across all supported structures (e.g. `IF` <-> `END-IF`, `EVALUATE` <-> `END-EVALUATE`, `PERFORM` <-> `END-PERFORM`, `EXEC SQL` <-> `END-EXEC`, `XML PARSE` <-> `END-XML`, `JSON PARSE` <-> `END-JSON`, `CLASS-ID` <-> `END CLASS`).
 - **Tree-sitter Text Objects**:
   - `vaf` / `vif`: Select around / inside `IF ... END-IF`
@@ -239,6 +239,14 @@ Sequence/indicator lines, continuation lines, comments, and nonblank reference
 area text at columns 73–80 are preserved.
 
 The plugin provides native folding for Divisions, Sections, Paragraphs, and data records: `za` toggles the current fold, `zc` closes it, and `zo` opens it.
+
+Fold text is a window-local option and several plugins claim it. `folding.foldtext` decides who owns it:
+
+| Value | Behaviour |
+| --- | --- |
+| `"auto"` (default) | Install the COBOL summary (`+-- IF STATUS = "A"`, `+-- EVALUATE TXN-TYPE`, `+-- PERFORM UNTIL EOF`) unless nvim-ufo manages the buffer, in which case ufo's own fold text -- which already shows the structure keyword plus a line count -- is left in place. |
+| `"plugin"` | Always use the COBOL structure summary. |
+| `"off"` | Never touch `foldtext` (and restore Neovim's default when this plugin set it). |
 
 `:CobolFormatCase` formats the current line, a Visual selection, or the whole buffer. It changes recognized COBOL reserved words while preserving strings, comments, and user-defined names. It is a conservative case formatter, not a full source reformatter.
 

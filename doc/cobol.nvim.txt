@@ -40,15 +40,23 @@ Rainbow Closure Matching:
 
 AST Breadcrumb:
   Real-time hierarchical chain (Division > Section > Paragraph > IF > EVALUATE
-  > WHEN). Exposed through:
-  - Winbar: Built-in when show_breadcrumbs is enabled.
+  > WHEN). The bundled grammar keeps statements, headers and END-* tokens as
+  flat siblings, so the chain is rebuilt from the paired structure ranges
+  rather than tree ancestry: a WHEN clause and its enclosing IF/EVALUATE are
+  resolved by range, and a division, section or paragraph contributes only its
+  header line. Exposed through:
+  - Winbar: Built-in when show_breadcrumbs is enabled. The breadcrumb is
+    clipped from the left on narrow windows so the innermost structures stay
+    visible.
   - Statusline: require("cobol.ast").statusline(bufnr)
   - Floating Window: require("cobol.ast").show_breadcrumb_float()
 
 Waiting Closures Stack:
   :CobolStructure or require("cobol.ast").show_waiting_closures_float()
   displays blocks awaiting closure at the cursor position, innermost first
-  (e.g., END-EVALUATE, END-IF, END-PERFORM).
+  (e.g., END-EVALUATE, END-IF, END-PERFORM). With show_waiting_closures
+  enabled (the default) the same stack is drawn on the right edge of the
+  winbar and follows the cursor.
 
 Matching Jump (%):
   Normal mode % jumps bidirectionally between block starts and corresponding
@@ -63,6 +71,10 @@ Text Objects:
 Enhanced Folding & Outline:
   foldtext displays structure summaries (e.g. +-- IF STATUS = "A",
   +-- EVALUATE TXN-TYPE, +-- PERFORM UNTIL EOF) instead of raw line counts.
+  'foldtext' is a window-local option that other plugins also claim, so
+  folding.foldtext decides ownership: "auto" (default) defers to nvim-ufo
+  when it manages the buffer, "plugin" always installs the COBOL summary,
+  and "off" never touches the option.
   Aerial / Syms outline provides a true multi-level parent-child hierarchy
   containing Sections, Paragraphs, IF, EVALUATE, WHEN, PERFORM, READ, WRITE,
   REWRITE, SEARCH, unquoted CALL, and embedded SQL statements (SQL SELECT,
@@ -276,6 +288,7 @@ Common options and defaults:
   char                     "│"
   show_winbar              true
   show_breadcrumbs         true
+  show_waiting_closures    true
   show_hierarchy_hint      true
   show_pic_size            true
   highlight_levels         true
@@ -290,6 +303,7 @@ Common options and defaults:
   cobc_command             "cobc"
   cobc_extra_args          {}
   folding.enable           true
+  folding.foldtext         "auto" (auto, plugin, off)
   diagnostics.enable       true
   diagnostics.on_save      true
   diagnostics.on_change    true

@@ -10,6 +10,7 @@ local default_config = {
   char = "│",                  -- 细线字符 (U+2502)
   show_winbar = true,          -- 顶部打孔卡刻度
   show_breadcrumbs = true,     -- 顶部 Winbar 实时显示 Division > Section > Paragraph 面包屑
+  show_waiting_closures = true,-- Winbar 右端显示待闭合栈 (END-IF · END-EVALUATE …)
   show_hierarchy_hint = true,  -- DATA DIVISION 行尾显示父级结构回溯 (← 05 PARENT)
   show_pic_size = true,        -- DATA DIVISION 实时显示字段字节数与 01 Record 内存总计
   highlight_levels = true,     -- 突出高亮 88 级条件名与 01 级记录
@@ -27,6 +28,10 @@ local default_config = {
   cobc_extra_args = {},        -- 传给 cobc 的额外参数
   folding = {
     enable = true,              -- 使用 COBOL Division/Section/Paragraph 结构折叠
+    -- "auto" leaves 'foldtext' to nvim-ufo when it manages the buffer (ufo
+    -- already renders the structure keyword plus a line count), "plugin" forces
+    -- this plugin's "+-- IF STATUS = \"A\"" summary, "off" never touches it.
+    foldtext = "auto",
   },
   diagnostics = {
     enable = true,              -- 启用 GnuCOBOL 异步语法飞检与诊断
@@ -191,18 +196,61 @@ function M.setup_highlights()
   })
 end
 
-local function setup_folding(bufnr)
+-- nvim-ufo overrides 'foldtext' on the windows it manages, so setting ours
+-- unconditionally only produces a silent fight in which ufo wins. Detect it and
+-- leave fold text to ufo unless the user asks for ours explicitly.
+local function ufo_manages_folds(bufnr)
+  local ok, ufo = pcall(require, "ufo")
+  if not ok or type(ufo) ~= "table" then
+    return false
+  end
+  for _, name in ipairs({ "is_enabled", "isEnabled" }) do
+    if type(ufo[name]) == "function" then
+      local ok_call, enabled = pcall(ufo[name], bufnr)
+      if ok_call then
+        return enabled ~= false
+      end
+    end
+  end
+  -- ufo is loaded but exposes no per-buffer query: assume it manages folds.
+  return package.loaded["ufo"] ~= nil
+end
+
+local function apply_foldtext(win, bufnr)
+  local mode = M.config.folding and M.config.folding.foldtext
+  if mode == false or mode == "off" then
+    -- Restore Neovim's default fold text if a previous configuration change
+    -- installed ours; otherwise leave the option untouched.
+    if vim.wo[win].foldtext:find("cobol.folding", 1, true) then
+      vim.wo[win].foldtext = "foldtext()"
+    end
+    return
+  end
+  if mode ~= "plugin" and ufo_manages_folds(bufnr) then
+    return
+  end
+  vim.wo[win].foldtext = "v:lua.require('cobol.folding').foldtext()"
+end
+
+local function setup_folding(bufnr, win)
   if not M.config.folding or not M.config.folding.enable then
     return
   end
-  local win = vim.api.nvim_get_current_win()
-  if vim.api.nvim_win_get_buf(win) ~= bufnr then
+  win = win or vim.api.nvim_get_current_win()
+  if not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_buf(win) ~= bufnr then
     return
   end
   vim.wo[win].foldmethod = "expr"
   vim.wo[win].foldexpr = "v:lua.require('cobol.folding').foldexpr(v:lnum)"
-  vim.wo[win].foldtext = "v:lua.require('cobol.folding').foldtext()"
   vim.wo[win].foldenable = true
+  -- ufo lazy-loads on BufReadPost, which can land after this FileType handler;
+  -- re-check on the next tick so the negotiated owner of fold text is stable.
+  apply_foldtext(win, bufnr)
+  vim.schedule(function()
+    if vim.api.nvim_win_is_valid(win) then
+      apply_foldtext(win, bufnr)
+    end
+  end)
 end
 
 local function setup_comment_syntax(bufnr)
@@ -339,13 +387,100 @@ function M.get_breadcrumb(bufnr, cursor_row)
   return table.concat(parts, " > "), hl_group
 end
 
+-- Winbar is rendered on a single line, so an over-long breadcrumb used to be
+-- truncated by Neovim and the visible part was the tail of unrelated source
+-- text. Keep the innermost parts and clip the rest instead.
+local function winbar_text(text)
+  return (text:gsub("%%", "%%%%"))
+end
+
+local function clip_parts(parts, budget)
+  local full = table.concat(parts, " > ")
+  if vim.api.nvim_strwidth(full) <= budget then
+    return full
+  end
+  budget = budget - 4 -- room for the leading "… > "
+  local kept = {}
+  local width = 0
+  for i = #parts, 1, -1 do
+    local part = parts[i]
+    local cost = vim.api.nvim_strwidth(part) + (#kept > 0 and 3 or 0)
+    if width + cost > budget and #kept > 0 then
+      break
+    end
+    table.insert(kept, 1, part)
+    width = width + cost
+  end
+  return "… > " .. table.concat(kept, " > ")
+end
+
+local function breadcrumb_highlight(parts)
+  if not parts[1] then
+    return "CobolBreadcrumbProc"
+  end
+  local division = parts[1]
+  if division:find("DATA", 1, true) then
+    return "CobolBreadcrumbData"
+  elseif division:find("ENVIRONMENT", 1, true) then
+    return "CobolBreadcrumbEnv"
+  elseif division:find("IDENTIFICATION", 1, true) then
+    return "CobolBreadcrumbId"
+  end
+  return "CobolBreadcrumbProc"
+end
+
+-- Waiting closures for the winbar's right edge, innermost first.
+local function waiting_closure_parts(win_id, bufnr, budget)
+  if not M.config.show_waiting_closures then
+    return {}
+  end
+  local pos = vim.api.nvim_win_get_cursor(win_id)
+  local stack = require("cobol.ast").closure_stack(bufnr, pos[1] - 1, pos[2])
+  local kept = {}
+  local width = 0
+  for _, entry in ipairs(stack) do
+    local cost = vim.api.nvim_strwidth(entry) + (#kept > 0 and 3 or 0)
+    if width + cost > budget and #kept > 0 then
+      break
+    end
+    kept[#kept + 1] = entry
+    width = width + cost
+  end
+  if #kept < #stack then
+    kept[#kept + 1] = "…"
+  end
+  return kept
+end
+
+-- The window whose breadcrumb to render. While Neovim draws a statusline or
+-- winbar, g:statusline_winid is the window being drawn, which is not necessarily
+-- the current one (splits, sidebars); prefer it when it shows COBOL source.
+local function cobol_window()
+  local candidates = {}
+  local statusline_win = vim.g.statusline_winid
+  if type(statusline_win) == "number" and statusline_win > 0 and vim.api.nvim_win_is_valid(statusline_win) then
+    candidates[#candidates + 1] = statusline_win
+  end
+  local current = vim.api.nvim_get_current_win()
+  if current and vim.api.nvim_win_is_valid(current) then
+    candidates[#candidates + 1] = current
+  end
+  for _, win in ipairs(candidates) do
+    local win_ft = vim.bo[vim.api.nvim_win_get_buf(win)].filetype
+    if win_ft == "cobol" or win_ft == "cbl" or win_ft == "cob" then
+      return win
+    end
+  end
+  return candidates[1]
+end
+
 -- 动态计算并返回 Winbar 标尺 + 面包屑字符串（精准对齐代码列）
 function M.get_winbar()
   if not M.state.enabled or not M.config.show_winbar then
     return ""
   end
 
-  local win_id = vim.api.nvim_get_current_win()
+  local win_id = cobol_window()
   if not win_id or not vim.api.nvim_win_is_valid(win_id) then
     return ""
   end
@@ -362,22 +497,51 @@ function M.get_winbar()
     textoff = wininfo[1].textoff or 0
   end
 
-  -- Show only the current COBOL structure. The old fixed-column ruler filled
-  -- the rest of the winbar with dots, which looked like stray/corrupt text.
-  local crumb = ""
+  local width = vim.api.nvim_win_get_width(win_id)
+  local avail = math.max(20, width - textoff - 2)
+
+  local crumb_parts = {}
   local hl_group = "CobolBreadcrumbProc"
   if M.config.show_breadcrumbs then
-    local cursor_row = vim.api.nvim_win_get_cursor(win_id)[1]
-    crumb, hl_group = M.get_breadcrumb(bufnr, cursor_row)
-    local state = require("cobol.ast").update(bufnr, win_id)
-    if state and state.breadcrumb ~= "" then crumb = state.breadcrumb end
+    local pos = vim.api.nvim_win_get_cursor(win_id)
+    local ok_chain, parts = pcall(require("cobol.ast").chain, bufnr, pos[1] - 1, pos[2])
+    if ok_chain and parts and #parts > 0 then
+      crumb_parts = parts
+      hl_group = breadcrumb_highlight(parts)
+    end
   end
-  if not crumb or crumb == "" then
+  if #crumb_parts == 0 then
     return ""
   end
 
+  -- The breadcrumb is the primary signal: give it the space it needs and keep
+  -- waiting closures only in what is left over, dropping them when there is no
+  -- room instead of squeezing the chain down to its last part.
+  local crumb_need = vim.api.nvim_strwidth(table.concat(crumb_parts, " > ")) + 4
+  local waiting_budget = avail - crumb_need - 6
+  local waiting_text = ""
+  if waiting_budget >= 16 then
+    local waiting = waiting_closure_parts(win_id, bufnr, waiting_budget)
+    local candidate = waiting[1] and table.concat(waiting, "  ") or ""
+    if candidate ~= "" and vim.api.nvim_strwidth(candidate) + 4 <= waiting_budget then
+      waiting_text = candidate
+    end
+  end
+  local crumb_budget = avail
+    - (waiting_text ~= "" and (vim.api.nvim_strwidth(waiting_text) + 4) or 0)
+    - 4
+
   local pad = string.rep(" ", textoff)
-  return pad .. "%#" .. hl_group .. "#[ " .. crumb .. " ]%*"
+  local winbar = pad
+    .. "%#"
+    .. hl_group
+    .. "#[ "
+    .. winbar_text(clip_parts(crumb_parts, math.max(12, crumb_budget)))
+    .. " ]%*"
+  if waiting_text ~= "" then
+    winbar = winbar .. "%=" .. "%#CobolWaitingClosure#⌫ " .. winbar_text(waiting_text) .. " "
+  end
+  return winbar
 end
 
 -- 更新 DATA DIVISION 当前光标行的宿主回溯虚拟提示 (← 05 PARENT)
@@ -906,6 +1070,7 @@ function M.setup(opts)
     })
   end
   M.setup_highlights()
+  require("cobol.ast").setup_highlights()
   setup_line_ruler()
 
   -- 创建用户命令
@@ -974,6 +1139,17 @@ function M.setup(opts)
   end, { desc = "COBOL: Toggle GnuCOBOL diagnostics linter" })
 
   require("cobol.commands").setup()
+
+  -- Folding is window-local, so re-apply it for COBOL buffers that are already
+  -- open: `setup()` can run after the first FileType handler (lazy loading, a
+  -- second `setup` call, or an override of folding.foldtext).
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local win_buf = vim.api.nvim_win_get_buf(win)
+    local win_ft = vim.bo[win_buf].filetype
+    if win_ft == "cobol" or win_ft == "cbl" or win_ft == "cob" then
+      setup_folding(win_buf, win)
+    end
+  end
 
   -- COBOL AST structure integrations
   vim.api.nvim_create_user_command("CobolStructure", function()

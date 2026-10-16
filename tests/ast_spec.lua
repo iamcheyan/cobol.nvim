@@ -295,4 +295,103 @@ assert(json_back and json_back[1] == 7, "% jump backward from END-JSON to JSON P
 local fold_sql = ast.foldtext_for_line(0, 11)
 assert(fold_sql:find("SQL SELECT"), "Foldtext for line 11 should show SQL SELECT: " .. fold_sql)
 
+-- 12. Breadcrumb must be an exact structural chain, not a dump of the division
+-- text. The vendored grammar keeps headers, bodies and END-* tokens as flat
+-- siblings, so ancestry-based chains used to print the whole PROCEDURE DIVISION.
+vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+  "       IDENTIFICATION DIVISION.",
+  "       PROGRAM-ID. CHAINTEST.",
+  "       PROCEDURE DIVISION.",
+  "       INPUT-SECTION SECTION.",
+  "       VALIDATE-INPUT.",
+  "           IF STATUS = \"A\"",
+  "               EVALUATE TXN-TYPE",
+  "                 WHEN \"D\"",
+  "                   DISPLAY \"OK\"",
+  "               END-EVALUATE",
+  "           END-IF.",
+})
+vim.bo.filetype = "cobol"
+vim.api.nvim_win_set_cursor(0, { 9, 20 })
+local chain_state = ast.update(0, 0)
+local expected_chain = 'PROCEDURE DIVISION > INPUT-SECTION > VALIDATE-INPUT > IF STATUS = "A" > EVALUATE TXN-TYPE > WHEN "D"'
+assert(chain_state.breadcrumb == expected_chain,
+  "Breadcrumb must be the exact chain, got: " .. chain_state.breadcrumb)
+assert(not chain_state.breadcrumb:find("DISPLAY", 1, true),
+  "Breadcrumb must not contain raw statement text: " .. chain_state.breadcrumb)
+assert(not chain_state.breadcrumb:find("STOP RUN", 1, true),
+  "Breadcrumb must not contain the division body: " .. chain_state.breadcrumb)
+assert(ast.chain(0, 8, 20)[1] == "PROCEDURE DIVISION", "chain() must return the parts, outermost first")
+
+-- WHEN must sit before structures nested inside its body
+vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+  "       IDENTIFICATION DIVISION.",
+  "       PROGRAM-ID. WHENORDER.",
+  "       PROCEDURE DIVISION.",
+  "       ORDER-PARA.",
+  "           EVALUATE TXN-TYPE",
+  "             WHEN 1",
+  "                 PERFORM UNTIL EOF-FLAG",
+  "                     DISPLAY \"LOOP\"",
+  "                 END-PERFORM",
+  "           END-EVALUATE.",
+})
+vim.api.nvim_win_set_cursor(0, { 8, 25 })
+local when_order = ast.update(0, 0).breadcrumb
+assert(when_order == "PROCEDURE DIVISION > ORDER-PARA > EVALUATE TXN-TYPE > WHEN 1 > PERFORM UNTIL EOF-FLAG",
+  "WHEN must precede structures nested in its body, got: " .. when_order)
+
+-- 13. ast.update must survive a window that shows another buffer (winbar and
+-- statusline are evaluated for windows that are not the current one).
+local cobol_buf = vim.api.nvim_get_current_buf()
+local scratch = vim.api.nvim_create_buf(false, true)
+vim.api.nvim_buf_set_lines(scratch, 0, -1, false, { "not cobol" })
+vim.cmd("split")
+vim.api.nvim_set_current_buf(scratch)
+local guard_ok, guard_state = pcall(ast.update, cobol_buf, vim.api.nvim_get_current_win())
+assert(guard_ok, "ast.update must clamp a cursor that belongs to another buffer: " .. tostring(guard_state))
+assert(guard_state and type(guard_state.breadcrumb) == "string",
+  "ast.update must still return state for the COBOL buffer")
+assert(pcall(ast.chain, cobol_buf, -5, -5), "chain() must tolerate a negative position")
+vim.cmd("close")
+
+-- 14. EXEC SQL statements whose body is not a bare SELECT must still pair with
+-- END-EXEC (regression: the grammar produced an ERROR node that swallowed it).
+local sql_variants = {
+  { "UPDATE", { "UPDATE EMP SET EMP_NAME = 'NO_NAME' WHERE EMP_NO > :EMP-NO" }, "SQL UPDATE" },
+  { "DELETE", { "DELETE FROM EMP WHERE EMP_NO = :EMP-NO" }, "SQL DELETE" },
+  { "DECLARE CURSOR", { "DECLARE C1 CURSOR FOR", "    SELECT EMP_NO FROM EMP" }, "SQL CURSOR" },
+}
+for _, variant in ipairs(sql_variants) do
+  local lines = {
+    "       IDENTIFICATION DIVISION.",
+    "       PROGRAM-ID. SQLVARIANT.",
+    "       PROCEDURE DIVISION.",
+    "           EXEC SQL",
+  }
+  for _, body in ipairs(variant[2]) do
+    lines[#lines + 1] = "               " .. body
+  end
+  lines[#lines + 1] = "           END-EXEC."
+  lines[#lines + 1] = "           STOP RUN."
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+
+  local end_exec_row = 4 + #variant[2]
+  local variants = ast.structures(0)
+  local found
+  for _, s in ipairs(variants) do
+    if s.name == "EXEC SQL" then found = s end
+  end
+  assert(found, "EXEC SQL must be detected for " .. variant[1])
+  assert(found.close_row == end_exec_row,
+    "EXEC SQL must pair with END-EXEC for " .. variant[1] .. ", got close_row=" .. tostring(found.close_row))
+  assert(found.label == variant[3],
+    "EXEC SQL label for " .. variant[1] .. " must be " .. variant[3] .. ", got " .. found.label)
+  local forward = ast.jump_match(0, 3, 12)
+  assert(forward and forward[1] == end_exec_row, "% must jump to END-EXEC for " .. variant[1])
+  local backward = ast.jump_match(0, end_exec_row, 12)
+  assert(backward and backward[1] == 3, "% must jump back to EXEC SQL for " .. variant[1])
+  assert(#ast.closure_stack(0, 3, 20) == 1, "EXEC SQL must appear in the waiting closures for " .. variant[1])
+end
+
 print("ast_spec: OK")
