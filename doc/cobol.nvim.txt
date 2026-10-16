@@ -24,19 +24,22 @@ CONTENTS                                                            cobol.nvim
 ==============================================================================
 TREE-SITTER STRUCTURAL NAVIGATION                           *cobol-treesitter*
 
-When the compiled tree-sitter-cobol parser (cobol.so) is installed in Neovim's
-runtimepath (e.g., site/parser/cobol.so), cobol.nvim provides advanced AST
-structural navigation:
+The plugin attempts to compile a missing tree-sitter-cobol parser (cobol.so)
+automatically when gcc, clang, or cc is available. Alternatively, run
+./scripts/build_parser.sh or set build = "bash scripts/build_parser.sh" in the
+plugin-manager spec. AST features require a usable parser on runtimepath.
 
-Rainbow Closure Matching:
-  When the cursor rests on a block opening or closing keyword, the matched
-  pair is highlighted with extmarks colored by real nesting depth:
-  Level 1: Blue (#61afef)     Level 2: Yellow (#e5c07b)
-  Level 3: Red (#e06c75)      Level 4: Green (#98c379)
-  Level 5: Purple (#c678dd)   Level 6: Cyan (#56b6c2)
-  Supported closed structures include IF, EVALUATE, inline PERFORM (UNTIL
-  and VARYING), SEARCH (and SEARCH ALL), READ, WRITE, REWRITE, DELETE, START,
-  STRING, and UNSTRING.
+Structure scope:
+  Focuses the innermost paired block at the cursor. The opener and matching
+  END-* receive depth-colored background badges with bold white text; ELSE
+  and WHEN branches also receive badges by default. A dashed vertical guide
+  connects the opener and closer. Unmatched structures have no scope guide.
+  Depth colors: blue #2563eb, amber #d97706, crimson #dc2626, emerald
+  #16a34a, purple #9333ea, cyan #0891b2. Configure via structure_scope =
+  { enable = true, char = "┆", show_branches = true }.
+  Supported pairs: IF, EVALUATE, PERFORM, SEARCH, READ, WRITE, REWRITE,
+  DELETE, START, STRING, UNSTRING, XML PARSE, JSON PARSE, EXEC SQL,
+  CLASS-ID, METHOD-ID, FACTORY, and OBJECT.
 
 AST Breadcrumb:
   Real-time hierarchical chain (Division > Section > Paragraph > IF > EVALUATE
@@ -51,12 +54,13 @@ AST Breadcrumb:
   - Statusline: require("cobol.ast").statusline(bufnr)
   - Floating Window: require("cobol.ast").show_breadcrumb_float()
 
-Waiting Closures Stack:
-  :CobolStructure or require("cobol.ast").show_waiting_closures_float()
-  displays blocks awaiting closure at the cursor position, innermost first
-  (e.g., END-EVALUATE, END-IF, END-PERFORM). With show_waiting_closures
-  enabled (the default) the same stack is drawn on the right edge of the
-  winbar and follows the cursor.
+Paired-block ending hints (Waiting Closures Stack):
+  The winbar's right edge lists the expected END-* keywords for parsed,
+  already-paired blocks containing the cursor, innermost first. :CobolStructure
+  sends this list in a notification; the separate Lua call
+  require("cobol.ast").show_waiting_closures_float() opens a floating list.
+  Missing END-* statements cannot be inferred from this list: unmatched
+  openers are not included. Use :CobolLint to detect syntax errors.
 
 Matching Jump (%):
   Normal mode % jumps bidirectionally between block starts and corresponding
@@ -69,8 +73,10 @@ Text Objects:
   vap / vip   Select around / inside PERFORM ... END-PERFORM
 
 Enhanced Folding & Outline:
-  foldtext displays structure summaries (e.g. +-- IF STATUS = "A",
-  +-- EVALUATE TXN-TYPE, +-- PERFORM UNTIL EOF) instead of raw line counts.
+  Native foldexpr creates folds for Divisions, Sections, Paragraphs, and data
+  items. If another fold provider creates a control-block fold, AST-aware
+  foldtext can summarize it (e.g. +-- IF STATUS = "A", +-- EVALUATE TXN-TYPE,
+  +-- PERFORM UNTIL EOF); this plugin does not create IF folds itself.
   'foldtext' is a window-local option that other plugins also claim, so
   folding.foldtext decides ownership: "auto" (default) defers to nvim-ufo
   when it manages the buffer, "plugin" always installs the COBOL summary,
@@ -86,7 +92,8 @@ SETUP                                                               *cobol-setup
 Install cobol.nvim with your plugin manager:
 
     {
-      "cobol.nvim",
+      "iamcheyan/cobol.nvim",
+      build = "bash scripts/build_parser.sh",  -- optional prebuild
       ft = { "cobol", "cbl", "cob" },
       opts = {},
     }
@@ -109,7 +116,8 @@ Fixed-format columns:
   73-80  Identification area; source beyond column 72 may be ignored
 
 Default visual guides are at columns 7, 8, 12, and 73. Text past column 72 is
-highlighted. The guides can be toggled with <leader>uc or :CobolGuideToggle.
+highlighted. :CobolGuideToggle detaches/reattaches the visual guide, winbar,
+and diagnostics; it does not uninstall existing buffer mappings or folding.
 
 Normal-mode column motions:
 
@@ -175,8 +183,9 @@ a field/offset table for a level-01 record:
   :CobolCalcRecord
 
 It estimates common DISPLAY, COMP/BINARY, COMP-3/PACKED-DECIMAL, COMP-1,
-COMP-2, OCCURS, and REDEFINES layouts. 88-level conditions do not occupy
-independent storage.
+COMP-2, elementary OCCURS, and REDEFINES layouts. 88-level conditions do not
+occupy independent storage. Group-level OCCURS does not multiply child sizes;
+a larger REDEFINES overlay does not increase the estimated total.
 
 These are learning and review estimates, not an ABI guarantee. Compiler
 version, dialect, target platform, alignment, separate signs, nested groups,
@@ -241,18 +250,19 @@ COMMANDS AND MAPPINGS                                           *cobol-commands*
 
 Guide and editing:
 
-  :CobolGuideToggle          Toggle the column guide
-  :CobolGuideEnable          Enable the column guide
-  :CobolGuideDisable         Disable the column guide
+  :CobolGuideToggle          Toggle guides, winbar, diagnostics attachment
+  :CobolGuideEnable          Reattach guides and diagnostics
+  :CobolGuideDisable         Detach/clear them (not mappings/folds)
   :CobolToggleComment        Toggle comments; accepts a line range
-  :CobolFormatCase           Uppercase recognized reserved words in a range
+  :CobolFormatCase           Uppercase reserved words in range; no range = all
 
 Navigation and layout:
 
   :CobolGotoDef              Jump to a COBOL definition
   :CobolGotoCopybook         Open the Copybook under the cursor
   :CobolPreview              Preview a definition or Copybook
-  :CobolCalcRecord           Show a level-01 record layout
+  :CobolCalcRecord           Show a level-01 record layout estimate
+  :CobolStructure            Notify paired-block ending hints (needs parser)
 
 Compiler:
 
@@ -267,7 +277,6 @@ Default buffer-local mappings:
 
   g7 g8 g12 g73              Jump to fixed-format columns
   gd gf K                    Definition, Copybook, and preview navigation
-  <leader>uc                 Toggle the column guide
   gcc / Visual gc            Toggle comments
   <leader>c*                 Toggle comments
   <leader>cr                 Calculate record layout
@@ -282,21 +291,22 @@ CONFIGURATION                                               *cobol-configuration
 
 Common options and defaults:
 
-  enabled                  true
   columns                  { 7, 8, 12, 73 }
   show_lines               true
   char                     "│"
-  show_winbar              true
+  show_winbar              true (breadcrumb / paired-block ending hints)
   show_breadcrumbs         true
   show_waiting_closures    true
+  structure_scope.enable   true
+  structure_scope.char     "┆"
+  structure_scope.show_branches true
   show_hierarchy_hint      true
   show_pic_size            true
   highlight_levels         true
   show_colorcolumn         false
   highlight_overflow       true
-  overflow_col             72
+  disable_indent_guide     true
   smart_tab                true
-  smart_comments           true
   keymaps                  true
   source_format            "auto"
   copybook_paths           common project Copybook directories
@@ -310,6 +320,10 @@ Common options and defaults:
   diagnostics.debounce_ms  600
   diagnostics.warnings     { "all", "no-obsolete" }
   completion.enable        true (only active when blink.cmp is installed)
+
+The source still declares enabled, overflow_col, and smart_comments, but
+currently does not consult them for the respective behavior. Do not rely on
+these as switches.
 
 For a learning guide, examples, and step-by-step exercises, see
 README.zh-CN.md in the plugin root.

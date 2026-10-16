@@ -10,31 +10,45 @@ The complete Chinese learning guide includes a COBOL introduction, a reference
 for every plugin feature, project setup, and step-by-step exercises:
 [README.zh-CN.md](README.zh-CN.md).
 
-![](assets/image-20261016-111954.png) 
-The screenshot shows the main workflow: the Aerial structure outline, fixed-format column guides, COBOL navigation, and a copybook preview in the editor. Aerial is a Neovim plugin that provides a searchable code-structure Outline sidebar.
+![Syms structure outline and an active IF/ELSE/END-IF scope](assets/image-20261016-111954.png)
+
+The screenshot shows Syms, the optional outline interface configured in this capture, above the
+fixed-format column guides and the top Winbar. In the editor, the current `IF ... ELSE ... END-IF`
+block is marked by colored opening, branch, and closing badges with a vertical dashed guide line,
+and the Winbar shows the structure breadcrumb. Syms is an optional outline UI; the plugin also
+ships a COBOL backend for Aerial. Theme colors and layout depend on the user's own Neovim
+configuration.
+
+An earlier capture is kept for reference:
+
+![Aerial outline, fixed-format guides, 01/88 highlights, and a Copybook preview](screenshot.png)
+
+It shows the Aerial outline sidebar, fixed-format column guides, 01/88-level highlighting, and the
+`K` Copybook preview floating window.
 
 ## Who is it for?
 
 `cobol.nvim` is useful for beginners learning fixed-format COBOL, developers maintaining `.cob`, `.cbl`, or `.cobol` programs, and projects that use copybooks and traditional Division/Section/Paragraph structure.
 
-The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Aerial displays these symbols in a searchable Neovim sidebar; without Aerial, all other navigation features remain available.
+The bundled Aerial backend recognizes COBOL Divisions, Sections, Paragraphs, file descriptions, and level-01 records. Aerial displays these symbols in a searchable Neovim sidebar; without Aerial (or another outline such as Syms), all other navigation features remain available.
 
 ## Features
 
 | Area | What it provides | Why it helps |
 | --- | --- | --- |
 | Fixed-format layout | Guides for columns 7, 8, 12, and 73; overflow highlighting; column jumps | Makes COBOL's source areas visible while you edit |
-| Structure and navigation | AST breadcrumbs, nested-block highlighting, `%`, `vaf`/`vif`/`vae`/`vie`/`vap`/`vip`, folding, `gd`, `gf`, and `K` | Navigate COBOL control flow by syntax-tree ranges |
+| Structure and navigation | AST breadcrumbs, nested-block scope badges and guide lines, `%`, `vaf`/`vif`/`vae`/`vie`/`vap`/`vip`, folding, `gd`, `gf`, and `K` | Navigate COBOL control flow by syntax-tree ranges |
 | Data layout | PIC and record-size estimates, including `OCCURS` and `REDEFINES` | Gives beginners a practical view of record storage |
 | Completion | COBOL keywords, verbs, clauses, snippets, data names, paragraphs, and copybooks | Reduces typing and helps you discover the vocabulary and structure of a program |
 | Context information | Format, source area, breadcrumb, current PIC, and record size | Keeps the most useful COBOL context visible while you move through a file |
 | Diagnostics | Asynchronous `cobc -fsyntax-only` checks and Quickfix integration | Finds syntax errors without blocking the editor |
 | Editing helpers | Comment toggle, smart Tab, reserved-word case formatting | Reduces repetitive work in fixed-format source |
-| Optional outline | Aerial, a Neovim code-structure sidebar, with the COBOL backend | Provides a searchable tree of the program |
+| Optional outline | An outline plugin such as Aerial or Syms; the plugin ships the COBOL backend for Aerial | Provides a searchable tree of the program |
 
 ## Requirements
 
 - Neovim 0.10 or newer.
+- A C compiler (`gcc`, `clang`, or `cc`) is required to build the bundled Tree-sitter parser. The plugin tries to compile a missing parser on startup; the AST features (scope badges, breadcrumbs, `%` matches, and text objects) are unavailable without it.
 - [blink.cmp](https://github.com/saghen/blink.cmp) is optional. Install it to enable the built-in COBOL completion source.
 - GnuCOBOL (`cobc`) is optional. Install it to use compiler diagnostics.
 - Aerial is optional. It is a Neovim code-structure/Outline sidebar plugin; install it only if you want the outline view.
@@ -45,18 +59,23 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
+  "iamcheyan/cobol.nvim",
+  -- Optional: pre-build the Tree-sitter parser during installation.
   build = "bash scripts/build_parser.sh",
   ft = { "cobol", "cbl", "cob" },
   opts = {},
 }
 ```
 
+The repository name belongs in the local lazy.nvim spec, alongside these options. Even without the
+`build` hook, the plugin tries to compile a missing parser on startup with the system C compiler. If
+no compiler is available, run `./scripts/build_parser.sh` manually once one is installed.
+
 To add the optional Aerial code-structure sidebar, install Aerial and enable the COBOL backend:
 
 ```lua
 {
   "stevearc/aerial.nvim",
-  optional = true,
   opts = function(_, opts)
     opts.backends = vim.tbl_deep_extend("force", opts.backends or {}, {
       cobol = { "cobol" },
@@ -65,13 +84,21 @@ To add the optional Aerial code-structure sidebar, install Aerial and enable the
 }
 ```
 
-The repository name for this plugin belongs in the local lazy.nvim spec, alongside these options.
+The plugin does not define a default outline keymap. If you want one, set it yourself, for example:
+
+```lua
+vim.keymap.set("n", "<leader>cs", "<cmd>AerialToggle<CR>", { desc = "Toggle outline" })
+```
+
+Syms and other outline plugins are configured in their own way; use their own toggle commands.
+
 ## Configuration
 
 The defaults are suitable for a small project. A project-specific setup can look like this:
 
 ```lua
 {
+  "iamcheyan/cobol.nvim",
   ft = { "cobol", "cbl", "cob" },
   opts = {
     project_root = vim.fn.expand("~/src/my-cobol-project"),
@@ -79,6 +106,7 @@ The defaults are suitable for a small project. A project-specific setup can look
     cobc_command = "cobc",
     cobc_extra_args = {},
     source_format = "auto",
+    structure_scope = { enable = true, char = "┆", show_branches = true },
     folding = { enable = true, foldtext = "auto" },
     diagnostics = { enable = true, debounce_ms = 600 },
   },
@@ -87,18 +115,26 @@ The defaults are suitable for a small project. A project-specific setup can look
 
 `project_root` and `copybook_paths` are used by copybook navigation and diagnostics. `source_format` accepts `auto`, `fixed`, or `free`. Without a project root, the plugin uses the current file's directory as a fallback.
 
+The default configuration also enables the column guides, Winbar, breadcrumbs, data-level
+highlighting, PIC/record size hints, and column-72 overflow highlighting. `columns` defaults to
+`{ 7, 8, 12, 73 }`. `structure_scope.enable` turns the paired-structure badges and connecting line
+on or off, and `structure_scope.show_branches` controls the `ELSE`/`WHEN` branch badges.
+
 ## A first workflow
 
 1. Open a COBOL source file and check the column guides. In fixed-format code, column 7 is the indicator area, columns 8–11 are Area A, columns 12–72 are Area B, and column 73 starts the identification area.
 2. Use `gd` on a paragraph or data name. Use `gf` on a `COPY` statement and `K` to preview a paragraph or copybook.
-3. If the optional Aerial Outline sidebar is installed, press `<leader>cs` to open the structure outline.
+3. To see an outline, install and configure Aerial (or another outline such as Syms). This plugin provides the COBOL symbols/backend but does not bind an outline key by default; Aerial exposes `:AerialToggle`.
 4. Place the cursor on a level-01 record or field and press `<leader>cr` to inspect the estimated layout.
 5. Save the file or press `<leader>cl` to run a syntax check with GnuCOBOL.
 6. Use `za`, `zc`, and `zo` to fold or unfold the current COBOL structure.
 
 ## Fixed-format editing
 
-Toggle the guide with `<leader>uc` or `:CobolGuideToggle`. The plugin highlights text beyond column 72, where fixed-format compilers normally ignore source text.
+Toggle the guide with `:CobolGuideToggle`. `:CobolGuideEnable` and `:CobolGuideDisable` reattach
+or detach the visual hints and diagnostics (disabling also clears current diagnostics); existing
+buffer mappings and folding settings remain in place. The plugin highlights text beyond column 72,
+where fixed-format compilers normally ignore source text.
 
 | Key | Destination |
 | --- | --- |
@@ -107,7 +143,7 @@ Toggle the guide with `<leader>uc` or `:CobolGuideToggle`. The plugin highlights
 | `g12` | Area B |
 | `g73` | Identification area |
 
-At the start of a line, Insert-mode `<Tab>` moves input toward Area A or Area B instead of inserting arbitrary indentation. `<leader>c*` and `:CobolToggleComment` toggle comments according to the detected source format: fixed format uses `*` in column 7, while free format uses `*>`. Visual selections are supported.
+At the start of a line, Insert-mode `<Tab>` moves input toward Area A or Area B instead of inserting arbitrary indentation. `<leader>c*`, `gcc`, and `:CobolToggleComment` toggle comments according to the detected source format: fixed format uses `*` in column 7, while free format uses `*>`. Visual selections are supported (`gc` in Visual mode, or a range with `:CobolToggleComment`).
 
 In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12; from column 12 onward it inserts a normal `shiftwidth` indent. `<S-Tab>` reverses through these stops without deleting source text. See the [complete Chinese fixed-format guide](README.zh-CN.md#2-固定格式-tab-和智能缩进).
 
@@ -117,11 +153,14 @@ In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12;
 - `gf` / `:CobolGotoCopybook`: open the Copybook under the cursor, with a choice when paths are ambiguous.
 - `K` / `:CobolPreview`: preview the declaration and its source file in a floating window.
 - `<C-o>`: return through Neovim's jump list.
-- `<leader>cs`: toggle the optional Aerial Outline sidebar.
+
+No outline key is bound by default. When Aerial is installed and configured (see
+[Installation](#installation)), use its own toggle such as `:AerialToggle`; an explicit
+`<leader>cs` mapping only works if you add it yourself.
 
 ### Tree-sitter structural navigation
 
-The plugin automatically compiles and installs the parser on startup if a C compiler (`gcc`, `clang`, or `cc`) is available on your system. You can also specify `build = "bash scripts/build_parser.sh"` in your plugin manager, or build it manually:
+The plugin automatically compiles and installs the parser on startup if a C compiler (`gcc`, `clang`, or `cc`) is available on your system. You can also specify `build = "bash scripts/build_parser.sh"` in your plugin manager to pre-build it, or build it manually:
 
 ```sh
 ./scripts/build_parser.sh
@@ -136,6 +175,9 @@ gcc -O2 -shared -fPIC \
   tree-sitter-cobol/src/parser.c tree-sitter-cobol/src/scanner.c
 ```
 
+The automatic build needs a C compiler; without one, the AST features stay disabled until a
+`cobol.so` is provided some other way.
+
 With the parser installed:
 
 - **Structure Scope Badges & Connecting Lines**:
@@ -147,14 +189,14 @@ With the parser installed:
 - **AST Breadcrumb**: Tracks the full structural hierarchy (`Division > Section > Paragraph > IF > EVALUATE > WHEN`). The vendored grammar keeps statements, headers and `END-*` tokens as flat siblings, so the chain is rebuilt from the paired structure ranges instead of tree ancestry: a `WHEN` clause and its enclosing `IF`/`EVALUATE` are resolved by range, and a division, section or paragraph contributes only its header line. Exposed through:
   - Winbar: Automatically integrated when `show_breadcrumbs = true` in config. The breadcrumb is clipped from the left when the window is narrow, so the innermost structures stay visible.
   - Statusline: `require("cobol.ast").statusline(bufnr)` returns formatted breadcrumb string.
-  - Floating Window: `require("cobol.ast").show_breadcrumb_float()` displays the full chain in an interactive floating popup (`q` or `<Esc>` to dismiss).
-- **Waiting Closures Stack**: `:CobolStructure` or `require("cobol.ast").show_waiting_closures_float()` displays blocks awaiting closure at the cursor position, ordered innermost first (e.g. `END-EVALUATE`, `END-IF`, `END-PERFORM`, `END-EXEC`). With `show_waiting_closures = true` the same stack is drawn on the right edge of the winbar and follows the cursor.
+  - Floating Window: `require("cobol.ast").show_breadcrumb_float()` displays the full chain in an interactive floating popup (`q` or `<Esc>` to dismiss). No default keymap is bound.
+- **Waiting Closures Stack**: `:CobolStructure` reports the blocks awaiting closure at the cursor position in a Neovim notification, ordered innermost first (e.g. `END-EVALUATE (EVALUATE ...)`, `END-IF`, `END-PERFORM`, `END-EXEC`). Use `require("cobol.ast").show_waiting_closures_float()` for the same list in a floating window. With `show_waiting_closures = true` the stack is also drawn on the right edge of the winbar and follows the cursor. This stack only lists structures the parser was able to pair; a block with a missing `END-*` usually cannot be paired and therefore will not appear, so use `:CobolLint` to find missing terminators.
 - **Matching Jump (`%`)**: Press `%` to jump bidirectionally between block starts and their corresponding `END-*` keywords across all supported structures (e.g. `IF` <-> `END-IF`, `EVALUATE` <-> `END-EVALUATE`, `PERFORM` <-> `END-PERFORM`, `EXEC SQL` <-> `END-EXEC`, `XML PARSE` <-> `END-XML`, `JSON PARSE` <-> `END-JSON`, `CLASS-ID` <-> `END CLASS`).
 - **Tree-sitter Text Objects**:
   - `vaf` / `vif`: Select around / inside `IF ... END-IF`
   - `vae` / `vie`: Select around / inside `EVALUATE ... END-EVALUATE`
   - `vap` / `vip`: Select around / inside `PERFORM ... END-PERFORM`
-- **Enhanced Folding (`foldtext`)**: Folds automatically display structure keywords and condition summaries (e.g. `+-- IF STATUS = "A"`, `+-- EVALUATE TXN-TYPE`, `+-- SQL SELECT`, `+-- XML PARSE`) rather than just raw line counts.
+- **Enhanced `foldtext`**: The plugin's own folds cover Divisions, Sections, Paragraphs, and data records. When another fold provider creates folds for control structures such as `IF`/`EVALUATE`, the parser can render their summary instead of a raw line count (e.g. `+-- IF STATUS = "A"`, `+-- EVALUATE TXN-TYPE`, `+-- SQL SELECT`, `+-- XML PARSE`). See the fold-text ownership table below.
 - **Hierarchical Outline (Aerial / Syms)**: Real multi-level parent-child tree:
   - Sections (`INPUT-SECTION`)
   - Paragraphs (`VALIDATE-INPUT`)
@@ -243,7 +285,7 @@ levels. Run `gg=G` to indent the file or `=` over a Visual selection.
 Sequence/indicator lines, continuation lines, comments, and nonblank reference
 area text at columns 73–80 are preserved.
 
-The plugin provides native folding for Divisions, Sections, Paragraphs, and data records: `za` toggles the current fold, `zc` closes it, and `zo` opens it.
+The plugin provides native folding for Divisions, Sections, Paragraphs, and data records: `za` toggles the current fold, `zc` closes it, and `zo` opens it. Control-structure folds such as `IF`/`EVALUATE` come from other fold providers, not from the native `foldexpr`.
 
 Fold text is a window-local option and several plugins claim it. `folding.foldtext` decides who owns it:
 
@@ -253,13 +295,17 @@ Fold text is a window-local option and several plugins claim it. `folding.foldte
 | `"plugin"` | Always use the COBOL structure summary. |
 | `"off"` | Never touch `foldtext` (and restore Neovim's default when this plugin set it). |
 
-`:CobolFormatCase` formats the current line, a Visual selection, or the whole buffer. It changes recognized COBOL reserved words while preserving strings, comments, and user-defined names. It is a conservative case formatter, not a full source reformatter.
+`:CobolFormatCase` formats recognized COBOL reserved words. Given a Visual
+selection or an explicit line range it processes only that range; without a
+range it processes the whole buffer. It preserves strings, comments, and
+user-defined names. It is a conservative case formatter, not a full source
+reformatter, so review the result after running it.
 
 ## PIC and record calculator
 
 `<leader>cr` or `:CobolCalcRecord` opens a layout table for the current record or field. It estimates sizes for common `DISPLAY`, `COMP`/`BINARY`, `COMP-3`/`PACKED-DECIMAL`, `OCCURS`, and `REDEFINES` declarations.
 
-These values are estimates based on common GnuCOBOL and platform conventions. They are useful for learning and review, but the compiler remains the authority for an application's actual ABI and storage layout.
+These values are estimates based on common GnuCOBOL and platform conventions. They are useful for learning and review, but the compiler remains the authority for an application's actual ABI and storage layout. In particular, the calculator does not multiply a group-level `OCCURS` into its subordinate fields, and a larger `REDEFINES` overlay is shown without increasing the running total, so treat the reported total length accordingly.
 
 ## Diagnostics
 
@@ -277,36 +323,46 @@ Unsaved buffer contents are passed to the compiler through standard input when p
 
 | Command | Purpose |
 | --- | --- |
-| `:CobolGuideToggle` | Toggle column guides and the winbar |
-| `:CobolGuideEnable` / `:CobolGuideDisable` | Enable or disable the guides |
+| `:CobolGuideToggle` | Toggle visual hints and diagnostics attachment (not existing mappings/folds) |
+| `:CobolGuideEnable` / `:CobolGuideDisable` | Reattach or detach hints and diagnostics |
+| `:CobolToggleComment` | Toggle a comment for the detected source format; accepts a range |
 | `:CobolGotoDef` | Jump to a definition |
 | `:CobolGotoCopybook` | Open a copybook |
 | `:CobolPreview` | Preview a paragraph or copybook |
 | `:CobolCalcRecord` | Show the record layout estimate |
-| `:CobolFormatCase` | Format recognized reserved words |
+| `:CobolStructure` | Report the expected `END-*` keywords for paired blocks at the cursor (needs the parser) |
+| `:CobolFormatCase` | Format recognized reserved words; whole buffer without a range, or the given range |
 | `:CobolLint` | Run the GnuCOBOL syntax check |
 | `:CobolQuickfix` | Open the diagnostics Quickfix list |
 | `:CobolDiagnosticsToggle` | Toggle automatic diagnostics |
-| `:CobolToggleComment` | Toggle a fixed-format comment |
 | `:CobolBuild` / `:CobolRun` / `:CobolTest` | Build, run, or check the project |
 
 ## Practice repository
 
-The companion COBOL workshop repository is small and runnable. It is optional, and provides examples for practicing the features described here.
+The companion COBOL course is optional and provides runnable examples for practicing the features described here:
 
 ```bash
-git clone <companion-repository-url> ~/cobol-practice
+git clone https://github.com/iamcheyan/cobol ~/cobol-practice
 cd ~/cobol-practice
-make check
-nvim INPUTCSV.COB
+make course-check
+nvim lessons/01_hello-cobol/lesson.cob
 ```
 
-The lessons cover fixed-format source, copybooks, PIC clauses and storage, `REDEFINES`, `OCCURS`, `SEARCH ALL`, and control-break reporting. Read `docs/01` through `docs/07` in order. The final lab maps the examples to the plugin's navigation, calculator, folding, formatting, and diagnostics commands.
+The course has 32 numbered lesson directories under `lessons/`, each shipping a `lesson.cob`
+alongside `README.md`, `exercise.md`, and `answer.md` (some lessons add extra programs, copybooks,
+scripts, and data fixtures). `make course-check` validates the lesson deliverables and
+syntax-checks lessons 01–28; lessons 29–32 use the GixSQL + SQLite toolchain and are covered by
+`make course-check-sql`. See `lessons/DIRECTORY.md` for the sequence, prerequisites, and goals. The
+lessons cover fixed-format source, copybooks, PIC clauses and storage, `REDEFINES`, `OCCURS`,
+`SEARCH ALL`, file processing, and control-break reporting, ending with a bank reconciliation
+project that maps the examples to the plugin's navigation, calculator, folding, formatting, and
+diagnostics commands.
 
 ## Troubleshooting
 
 - **No column guide:** confirm that `:set filetype?` reports `cobol`.
-- **No outline:** the Outline sidebar is provided by the optional Aerial Neovim plugin; install it and add the configuration shown above.
+- **No outline:** the Outline sidebar is provided by an optional outline plugin (Aerial or Syms). Install and configure one; the plugin does not bind an outline key by default.
+- **No scope badges, breadcrumbs, or `%` matching:** the Tree-sitter parser is missing. Install a C compiler (`gcc`, `clang`, or `cc`) or build `cobol.so` manually with `./scripts/build_parser.sh`.
 - **No diagnostics:** run `:echo executable('cobc')` and install GnuCOBOL or correct `cobc_command`.
 - **Copybook not found:** set `project_root` and include the copybook directories in `copybook_paths`.
 - **Unexpected layout size:** treat calculator output as an estimate and verify the declaration with the compiler and platform documentation.

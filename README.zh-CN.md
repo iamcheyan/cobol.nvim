@@ -6,6 +6,10 @@
 
 [English](README.md) · [日本語](README.ja.md)
 
+![Syms 结构大纲与 IF/ELSE/END-IF 作用域提示](assets/image-20261016-111954.png)
+
+新截图展示 Syms 结构大纲、固定格式列标尺、顶部 Winbar，以及当前 IF 块的彩色起止/ELSE 标记和连接虚线。Syms 是截图中的可选大纲界面；本插件也提供可供 Aerial 使用的 COBOL 后端。界面配色和布局取决于用户自己的 Neovim 配置。
+
 ## 目录
 
 1. [安装和第一次运行](#安装和第一次运行)
@@ -23,10 +27,29 @@
 
 ~~~lua
 {
+  "iamcheyan/cobol.nvim",
+  build = "bash scripts/build_parser.sh", -- 可选：安装时预编译 Tree-sitter 解析器
   ft = { "cobol", "cbl", "cob" },
   opts = {},
 }
 ~~~
+
+即使省略 `build`，插件启动时也会尝试用系统的 `gcc`、`clang` 或 `cc` 编译缺失的解析器。结构胶囊、面包屑、`%` 配对和 AST 文本对象需要可用的解析器；没有 C 编译器时可以手动运行 `./scripts/build_parser.sh`（仍需安装 C 编译器）。
+
+要使用 Aerial 大纲，需要另行安装并配置 Aerial 后端：
+
+~~~lua
+{
+  "stevearc/aerial.nvim",
+  opts = function(_, opts)
+    opts.backends = vim.tbl_deep_extend("force", opts.backends or {}, {
+      cobol = { "cobol" },
+    })
+  end,
+}
+~~~
+
+`<leader>cs` 不是本插件提供的默认映射。需要时可自行添加 `vim.keymap.set("n", "<leader>cs", "<cmd>AerialToggle<CR>")`；也可以直接运行 `:AerialToggle`。截图中的 Syms 应按照 Syms 自己的说明安装和配置。
 
 建议安装 GnuCOBOL，这样编译检查、构建和单文件运行才能使用。插件不会替你安装系统软件。`blink.cmp` 和 Aerial 都是可选插件：前者提供补全菜单，后者显示结构大纲。其余核心功能不依赖这两个插件。
 
@@ -36,7 +59,7 @@
 :set filetype?
 ~~~
 
-结果应为 `cobol`、`cbl` 或 `cob`。插件会在这些 filetype 的缓冲区自动启用。用 `:CobolGuideToggle` 可以临时关闭或重新打开列标尺。
+结果应为 `cobol`、`cbl` 或 `cob`。插件会在这些 filetype 的缓冲区自动启用。用 `:CobolGuideToggle` 可以临时关闭或重新打开列标尺与 Winbar 提示；关闭时也会清理当前诊断，但不会卸载已有的编辑映射或折叠设置。
 
 建议第一次按这个顺序试用：
 
@@ -121,7 +144,6 @@
 | `gf` | 在 `COPY` 语句上打开对应 Copybook；同名候选不唯一时弹出选择 |
 | `K` | 预览光标所在定义或 Copybook |
 | `<C-o>`、`<C-i>` | 返回上一个跳转位置、向前重走跳转记录 |
-| `<leader>uc` | 切换列标尺 |
 | `<leader>c*` | 切换当前行或 Visual 选区注释 |
 | `gcc` | 切换当前行注释；可带 Vim 数量，如 `3gcc` |
 | Visual `gc` | 切换所选行注释 |
@@ -134,14 +156,15 @@
 
 | 命令 | 用途 |
 | --- | --- |
-| `:CobolGuideToggle` | 开关列标尺和 Winbar 提示 |
-| `:CobolGuideEnable` / `:CobolGuideDisable` | 强制开启或关闭列标尺 |
+| `:CobolGuideToggle` | 切换可视提示及诊断附着；保留已有映射与折叠设置 |
+| `:CobolGuideEnable` / `:CobolGuideDisable` | 启用或停用提示及诊断附着 |
 | `:CobolToggleComment` | 按当前格式切换注释；也接受行范围 |
 | `:CobolGotoDef` | 执行 `gd` 定义跳转 |
 | `:CobolGotoCopybook` | 执行 `gf` Copybook 跳转 |
 | `:CobolPreview` | 执行 `K` 预览 |
-| `:CobolCalcRecord` | 显示当前 01 记录的字段和偏移量 |
-| `:CobolFormatCase` | 将范围内识别出的 COBOL 保留字改为大写 |
+| `:CobolCalcRecord` | 显示当前 01 记录的字段和偏移量估算 |
+| `:CobolStructure` | 通知显示光标所在已配对块的预期结束关键字（需解析器） |
+| `:CobolFormatCase` | 无范围时处理整个缓冲区；给定行范围时仅处理该范围 |
 | `:CobolLint` | 立即运行 GnuCOBOL 语法检查 |
 | `:CobolQuickfix` | 打开 COBOL 诊断 Quickfix 列表 |
 | `:CobolDiagnosticsToggle` | 开关自动编译器诊断 |
@@ -153,9 +176,9 @@
 
 ### 1. 列标尺、跳列与越界提示
 
-第 7、8、12、73 列的细线标尺与 Winbar 刻度会随 COBOL 窗口显示。光标移动时，Winbar 还可显示当前 Division、Section、Paragraph 或 DATA 项上下文。标尺使用透明背景，不会盖住主题和光标行颜色。
+第 7、8、12、73 列的细线标尺会随 COBOL 窗口显示。顶部 Winbar 显示结构面包屑；若解析器可用，还会在右端显示当前已配对块的预期结束关键字。源码第 72 列后的内容会触发越界高亮。
 
-练习：光标停在任意 COBOL 行，依次按 `g7`、`g8`、`g12`、`g73`，观察列位置。把光标移到第 73 列之后的正文，确认越界内容被突出显示。用 `<leader>uc` 暂时关闭，再按一次恢复。
+练习：光标停在任意 COBOL 行，依次按 `g7`、`g8`、`g12`、`g73`，观察列位置。检查越界部分，再用 `:CobolGuideToggle` 暂时关闭提示，重新运行以恢复。
 
 ### 2. 固定格式 Tab 和智能缩进
 
@@ -200,7 +223,8 @@
 
 搜索目录来自 `.cobol.json` 的 `copybook_paths` 或插件设置。`COPY ... REPLACING` 会把 Copybook 名称与替换文本分开处理。
 
-插件帮助文档 `doc/cobol.nvim.txt` 中有两个章节重复定义 `*cobol-treesitter*`。Neovim 的 `:helptags` 不允许同一帮助文件重复标签；现已删除后一个重复章节，保留目录和原始章节。
+### Tree-sitter 结构视图
+
 插件在启动时只要检测到系统存在 C 编译器（`gcc`、`clang` 或 `cc`），会自动将解析器编译并安装到 Neovim 数据目录，无需手动干预。你也可以在 lazy.nvim 配置中声明 `build = "bash scripts/build_parser.sh"`，或者手动运行内置脚本构建：
 
 ```sh
@@ -234,10 +258,10 @@ gcc -O2 -shared -fPIC \
     ```
 - **当前结构链显示（AST Breadcrumb）**：
   - **怎么看**：在窗口顶部的 Winbar 左侧实时显示当前层级路径：`[ PROCEDURE DIVISION > INPUT-SECTION > VALIDATE-INPUT > IF STATUS = "A" > EVALUATE TXN-TYPE > WHEN "D" ]`。窗口较窄时会自动从左侧平滑折叠（`… > `），优先保障最内层的语句条件完整可见。
-  - **怎么用**：日常编辑自动常驻于顶部 Winbar。若想在居中弹窗中细致查看，按快捷键调用 `require("cobol.ast").show_breadcrumb_float()` 即可弹出交互式全层级悬浮窗（按 `q` 或 `<Esc>` 退出）。
-- **待闭合栈（Outstanding Closures Stack）**：
-  - **怎么看**：顶部 Winbar 的最右端实时展示当前光标处所有尚未闭合的控制块标签，如 `⌫ END-IF  END-EVALUATE`，最内层的待闭合块显示在最前。
-  - **怎么用**：敲代码时余光看一眼右上方即可知道当前还有几个块漏写了 `END-*`。运行 `:CobolStructure` 或调用 `require("cobol.ast").show_waiting_closures_float()` 也可以随时唤出居中浮窗清单。
+  - **怎么用**：日常编辑自动显示在顶部 Winbar。也可以执行 `:lua require("cobol.ast").show_breadcrumb_float()` 查看完整层级（`q` 或 `<Esc>` 退出）；插件未为它分配默认快捷键。
+- **结构结束关键字提示（Waiting Closures Stack）**：
+  - **怎么看**：顶部 Winbar 的最右端实时列出光标所在**已解析、已配对**结构对应的结束关键字，如 `⌫ END-IF  END-EVALUATE`，由内到外排列。
+  - **怎么用**：运行 `:CobolStructure` 会通过 Neovim 通知显示该列表；执行 `:lua require("cobol.ast").show_waiting_closures_float()` 则打开浮窗。这个列表不是语法错误检测器：缺少 `END-*` 的块通常无法配对，因此不会出现在列表里；请用 `:CobolLint` 检查漏写的终止符。
 - **匹配跳转（`%`）**：
   - **怎么看**：光标在起始关键字（如 `IF`）或结束关键字（如 `END-IF`）上。
   - **怎么用**：按键盘上的 `%` 键，光标在 `IF` <-> `END-IF`、`EVALUATE` <-> `END-EVALUATE`、`PERFORM` <-> `END-PERFORM`、`EXEC SQL` <-> `END-EXEC`、`XML PARSE` <-> `END-XML`、`JSON PARSE` <-> `END-JSON`、`CLASS-ID` <-> `END CLASS` 等全部 18 种结构之间双向互跳。
@@ -247,7 +271,7 @@ gcc -O2 -shared -fPIC \
     - `vae` / `vie`：选中外层 / 内部 `EVALUATE ... END-EVALUATE`
     - `vap` / `vip`：选中外层 / 内部 `PERFORM ... END-PERFORM`
     - 也支持操作符，例如 `daf` 直接删除整个 IF 块，`cif` 清空并重新编写 IF 内部逻辑。
-- **折叠优化（`foldtext`）**：折叠摘要显示结构关键词与条件摘要（如 `+-- IF STATUS = "A"`、`+-- EVALUATE TXN-TYPE`、`+-- SQL SELECT`、`+-- XML PARSE`），替代仅显示行数的传统显示。`foldtext` 是窗口级选项，可能与其他插件冲突，用 `folding.foldtext` 决定归属：`"auto"`（默认，若 nvim-ufo 管理该缓冲区则让给 ufo）、`"plugin"`（始终使用插件的结构摘要）、`"off"`（完全不改动）。
+- **折叠优化（`foldtext`）**：原生 `foldexpr` 为 Division、Section、Paragraph 和数据项建立折叠；如果其他折叠提供者建立了 IF/EVALUATE 等控制块折叠，解析器可为这些折叠生成条件摘要（如 `+-- IF STATUS = "A"`、`+-- EVALUATE TXN-TYPE`、`+-- SQL SELECT`、`+-- XML PARSE`），并非原生就为每个 IF 建立折叠。`foldtext` 是窗口级选项，可能与其他插件冲突，用 `folding.foldtext` 决定归属：`"auto"`（默认，若 nvim-ufo 管理该缓冲区则让给 ufo）、`"plugin"`（始终使用插件的结构摘要）、`"off"`（完全不改动）。
 - **增强大纲（Aerial / Syms Outline）**：按真实父子嵌套关系组织多级树状结构，包含：
   - Section（如 `INPUT-SECTION`，去除 `SECTION` 后缀）
   - Paragraph（如 `VALIDATE-INPUT`）
@@ -310,7 +334,7 @@ local cobol_status = require("cobol.statusline")
 
 ### 7. 诊断、Quickfix、构建与运行
 
-启用自动诊断时，插件异步调用 GnuCOBOL，不阻塞输入。默认保存后和编辑停止一小段时间后检查。`<leader>cl` / `:CobolLint` 可立即检查；`<leader>cq` / `:CobolQuickfix` 打开位置列表；`:cnext`、`:cprev` 在项目问题间移动。Copybook 中的错误会尽可能映射到 Copybook 文件和主程序中的 COPY 来源行。
+启用自动诊断时，插件异步调用 GnuCOBOL，不阻塞输入。默认保存后和编辑停止一小段时间后检查。`<leader>cl` / `:CobolLint` 可立即检查；`<leader>cq` / `:CobolQuickfix` 打开 Quickfix 列表；`:cnext`、`:cprev` 在项目问题间移动。Copybook 中的错误会尽可能映射到 Copybook 文件和主程序中的 COPY 来源行。
 
 单文件项目没有 Makefile 时：
 
@@ -373,6 +397,7 @@ lazy.nvim 的 `opts` 可覆盖默认值：
 
 ~~~lua
 {
+  "iamcheyan/cobol.nvim",
   ft = { "cobol", "cbl", "cob" },
   opts = {
     source_format = "fixed",
@@ -381,8 +406,8 @@ lazy.nvim 的 `opts` 可覆盖默认值：
     cobc_command = "cobc",
     cobc_extra_args = {},
     smart_tab = true,
-    smart_comments = true,
     keymaps = true,
+    structure_scope = { enable = true, char = "┆", show_branches = true },
     folding = { enable = true },
     diagnostics = {
       enable = true,
@@ -395,30 +420,28 @@ lazy.nvim 的 `opts` 可覆盖默认值：
 }
 ~~~
 
-项目名在本机 lazy.nvim spec 中配置，并与该仓库的 GitHub 地址对应。
-
 默认还启用列标尺、Winbar、面包屑、数据级别高亮、PIC/记录大小提示和第 72 列越界提示。`columns` 默认是 `{ 7, 8, 12, 73 }`。项目配置比全局选项更适合团队共享；不要把机器专属绝对路径提交到项目文件。
 
-完整默认值速查：
+常用有效配置速查（代码中另有 `enabled`、`overflow_col`、`smart_comments` 默认字段，但当前行为未读取这些选项；不要依赖它们关闭插件、修改越界列或关闭注释功能）：
 
 | 选项 | 默认值 | 用途 |
 | --- | --- | --- |
-| `enabled` | `true` | 启用插件功能 |
 | `columns` | `{ 7, 8, 12, 73 }` | 标尺列位置 |
 | `show_lines` | `true` | 显示列细线标尺 |
 | `char` | `"│"` | 标尺字符 |
-| `show_winbar` | `true` | 显示顶部列刻度 |
+| `show_winbar` | `true` | 显示顶部结构面包屑和结束关键字提示 |
 | `show_breadcrumbs` | `true` | 显示 Division/Section/Paragraph 面包屑 |
-| `show_waiting_closures` | `true` | 在 winbar 右端显示待闭合栈 |
+| `show_waiting_closures` | `true` | 在 Winbar 右端列出已配对块的结束关键字 |
+| `structure_scope.enable` | `true` | 启用最内层已配对结构的范围标记 |
+| `structure_scope.char` | `"┆"` | 结构连接线字符 |
+| `structure_scope.show_branches` | `true` | 显示 ELSE/WHEN 分支标记 |
 | `show_hierarchy_hint` | `true` | 显示数据项父级提示 |
 | `show_pic_size` | `true` | 显示字段/01 记录大小提示 |
 | `highlight_levels` | `true` | 突出显示 01 和 88 级项目 |
 | `show_colorcolumn` | `false` | 额外显示 Neovim ColorColumn；默认不用背景色块 |
 | `highlight_overflow` | `true` | 高亮固定格式第 72 列以后的正文 |
-| `overflow_col` | `72` | 正文安全边界列 |
 | `disable_indent_guide` | `true` | 在 COBOL 窗口关闭通用缩进参考线 |
 | `smart_tab` | `true` | 启用固定格式 Tab/反 Tab 列停靠 |
-| `smart_comments` | `true` | 启用 COBOL 注释切换 |
 | `keymaps` | `true` | 安装插件默认 buffer-local 快捷键 |
 | `project_root` | `nil` | 可选项目根目录；未设时自动查找/回退 |
 | `source_format` | `"auto"` | 固定格式、自由格式或自动识别 |
@@ -437,6 +460,8 @@ lazy.nvim 的 `opts` 可覆盖默认值：
 | `completion.enable` | `true` | 启用可选补全源；仍需安装 blink.cmp |
 
 ## COBOL 入门练习
+
+下方是本手册的独立练习。如果想按完整课程继续学习，可参阅 [iamcheyan/cobol](https://github.com/iamcheyan/cobol) 的 32 课：`lessons/01_hello-cobol/README.md` 是起点，仓库根目录运行 `make course-check` 验证课程文件；后面的 SQL 课程另有 `make course-check-sql`。这套课程不是插件的安装前提。
 
 建议先安装 GnuCOBOL 并准备一个目录：
 
@@ -613,11 +638,11 @@ nvim HELLO.COB
 | `PIC S9(7) COMP-3` | 按数字半字节与符号半字节估算压缩十进制 |
 | `PIC 9(n) COMP` / `BINARY` | 按数字位数粗分为 2、4 或 8 字节 |
 | `COMP-1` / `COMP-2` | 常见实现按 4 / 8 字节估算 |
-| `OCCURS n` | 字段估算值乘以重复次数 |
-| `REDEFINES` | 布局表标记与重定义字段共享起始位置 |
+| 基本字段的 `OCCURS n` | 该字段估算值乘以重复次数；组级 OCCURS 不乘以子字段总量 |
+| `REDEFINES` | 布局表标记与重定义字段共享起始位置；覆盖项更大时不会扩大估算总长 |
 | 88 级条件名 | 不占独立存储 |
 
-光标在数据字段上时会显示局部估算；在 01 行运行 `:CobolCalcRecord` 可打开布局表。估算不是 ABI 保证：不同 GnuCOBOL 版本、编译参数、平台、同步对齐、独立符号位和高级 OCCURS 选项都会影响实际长度。需要精确文件长度时，用目标平台的编译器工具和定义规范验证。
+光标在数据字段上时会显示局部估算；在 01 行运行 `:CobolCalcRecord` 可打开布局表。尤其不要把组级 `OCCURS` 或更大的 `REDEFINES` 覆盖项所得总长当成真实记录长度。估算不是 ABI 保证：不同 GnuCOBOL 版本、编译参数、平台、同步对齐、独立符号位和高级 OCCURS 选项都会影响实际长度。需要精确文件长度时，用目标平台的编译器工具和定义规范验证。
 
 ## 常见问题
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Attempt to compile and install a missing Tree-sitter COBOL parser on startup
+  when a C compiler is available; provide a plugin-manager build hook.
+- Highlight the single innermost paired structure at the cursor with
+  depth-colored opening/closing badges, optional ELSE/WHEN branch badges, and
+  a dashed connecting guide. Preserve scope lines across ruler redraws and
+  increase the first depth's contrast.
+- Refresh the English, Chinese, Japanese, and Neovim help documentation,
+  including the shared current screenshot and actual command/mapping behavior.
 - Fix the AST breadcrumb: the bundled grammar keeps statements, headers and
   `END-*` tokens as flat siblings, so the previous tree-ancestry walk printed
   the entire `PROCEDURE DIVISION` body instead of a chain. The chain
@@ -14,9 +22,10 @@
   be paired, jumped to, folded or listed. The bundled grammar now keeps the
   statement body permissive while still terminating at `END-EXEC`, and
   `DECLARE CURSOR` is labelled `SQL CURSOR`.
-- Draw the waiting-closures stack on the right edge of the winbar
-  (`show_waiting_closures`, default `true`), so outstanding `END-*` keywords are
-  visible while editing instead of only through `:CobolStructure`.
+- Draw expected ending keywords for already-paired structures at the cursor
+  on the right edge of the winbar (`show_waiting_closures`, default `true`),
+  alongside the existing `:CobolStructure` notification. This is not an
+  unmatched-block detector.
 - Add `folding.foldtext` (`auto`/`plugin`/`off`) so the COBOL fold summary is no
   longer silently overwritten by nvim-ufo.
 - Guard `ast.update` against windows whose cursor does not belong to the COBOL
