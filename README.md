@@ -46,6 +46,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 
 ```lua
 {
+  build = "bash scripts/build_parser.sh",
   ft = { "cobol", "cbl", "cob" },
   opts = {},
 }
@@ -121,7 +122,7 @@ In fixed-format buffers, Insert-mode `<Tab>` moves through columns 7, 8, and 12;
 
 ### Tree-sitter structural navigation
 
-Choose the parser directory from your Neovim installation's data path (e.g. `~/.local/share/nvim/site/parser`). You can build and install the extended grammar directly using the bundled reproducible build script:
+The plugin automatically compiles and installs the parser on startup if a C compiler (`gcc`, `clang`, or `cc`) is available on your system. You can also specify `build = "bash scripts/build_parser.sh"` in your plugin manager, or build it manually:
 
 ```sh
 ./scripts/build_parser.sh

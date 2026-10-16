@@ -394,4 +394,13 @@ for _, variant in ipairs(sql_variants) do
   assert(#ast.closure_stack(0, 3, 20) == 1, "EXEC SQL must appear in the waiting closures for " .. variant[1])
 end
 
+-- 15. ensure_parser returns true when parser/cobol.so is already installed
+local ensure_called = false
+local ensure_ok = ast.ensure_parser(function(ok)
+  ensure_called = true
+  assert(ok, "ensure_parser callback must receive true when parser is present")
+end)
+assert(ensure_ok == true, "ensure_parser must return true when parser is present")
+assert(ensure_called, "ensure_parser callback must be invoked")
+
 print("ast_spec: OK")

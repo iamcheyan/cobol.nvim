@@ -20,12 +20,19 @@ const void *tree_sitter_cobol(void) {
 }
 EOF
 
-gcc -O2 -shared -fPIC \
-  -I "$parser_src/src" \
-  -I "$parser_src/src/tree_sitter" \
-  -o "$target_so" \
-  "$parser_src/src/parser.c" \
-  "$parser_src/src/scanner.c" \
-  "$alias_c"
+CC="${CC:-$(command -v gcc || command -v clang || command -v cc || echo cc)}"
+CFLAGS=(-O2 -fPIC -I "$parser_src/src" -I "$parser_src/src/tree_sitter")
+
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  "$CC" "${CFLAGS[@]}" -bundle -undefined dynamic_lookup -o "$target_so" \
+    "$parser_src/src/parser.c" \
+    "$parser_src/src/scanner.c" \
+    "$alias_c"
+else
+  "$CC" "${CFLAGS[@]}" -shared -o "$target_so" \
+    "$parser_src/src/parser.c" \
+    "$parser_src/src/scanner.c" \
+    "$alias_c"
+fi
 
 echo "COBOL Tree-sitter parser compiled successfully to: $target_so"

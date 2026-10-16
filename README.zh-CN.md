@@ -201,7 +201,7 @@
 搜索目录来自 `.cobol.json` 的 `copybook_paths` 或插件设置。`COPY ... REPLACING` 会把 Copybook 名称与替换文本分开处理。
 
 插件帮助文档 `doc/cobol.nvim.txt` 中有两个章节重复定义 `*cobol-treesitter*`。Neovim 的 `:helptags` 不允许同一帮助文件重复标签；现已删除后一个重复章节，保留目录和原始章节。
-可直接使用仓库内置的可复现构建脚本编译并安装扩展 grammar（源自 Yutaro Sakamoto 的 MIT 协议 grammar）：
+插件在启动时只要检测到系统存在 C 编译器（`gcc`、`clang` 或 `cc`），会自动将解析器编译并安装到 Neovim 数据目录，无需手动干预。你也可以在 lazy.nvim 配置中声明 `build = "bash scripts/build_parser.sh"`，或者手动运行内置脚本构建：
 
 ```sh
 ./scripts/build_parser.sh

@@ -30,11 +30,102 @@ local function is_cobol(bufnr)
   return ft == "cobol" or ft == "cbl" or ft == "cob"
 end
 
+local compile_state = {
+  attempted = false,
+  compiling = false,
+}
+
+function M.ensure_parser(callback)
+  local paths = vim.api.nvim_get_runtime_file("parser/cobol.so", false)
+  if #paths > 0 then
+    if callback then callback(true, paths[1]) end
+    return true
+  end
+
+  if compile_state.compiling or compile_state.attempted then
+    if callback then callback(false) end
+    return false
+  end
+
+  local scripts = vim.api.nvim_get_runtime_file("scripts/build_parser.sh", false)
+  if #scripts == 0 then
+    compile_state.attempted = true
+    if callback then callback(false) end
+    return false
+  end
+
+  local compiler = (vim.fn.executable("gcc") == 1 and "gcc")
+    or (vim.fn.executable("clang") == 1 and "clang")
+    or (vim.fn.executable("cc") == 1 and "cc")
+  if not compiler then
+    compile_state.attempted = true
+    if callback then callback(false) end
+    return false
+  end
+
+  compile_state.compiling = true
+  local script_path = scripts[1]
+
+  local function on_finish(success, err)
+    compile_state.compiling = false
+    compile_state.attempted = true
+    if success then
+      local new_paths = vim.api.nvim_get_runtime_file("parser/cobol.so", false)
+      if #new_paths > 0 then
+        pcall(vim.treesitter.language.add, "cobol", { path = new_paths[1], symbol_name = "COBOL" })
+      else
+        pcall(vim.treesitter.language.add, "cobol")
+      end
+      vim.schedule(function()
+        for _, win in ipairs(vim.api.nvim_list_wins()) do
+          local win_buf = vim.api.nvim_win_get_buf(win)
+          if is_cobol(win_buf) then
+            pcall(M.update, win_buf, win)
+          end
+        end
+      end)
+    else
+      if err and err ~= "" then
+        vim.notify("COBOL: Auto-compilation of parser failed: " .. err, vim.log.levels.WARN)
+      end
+    end
+    if callback then callback(success) end
+  end
+
+  if vim.system then
+    vim.system({ "bash", script_path }, { text = true }, function(obj)
+      vim.schedule(function()
+        on_finish(obj.code == 0, obj.stderr)
+      end)
+    end)
+  else
+    local job_id = vim.fn.jobstart({ "bash", script_path }, {
+      on_exit = function(_, exit_code)
+        vim.schedule(function()
+          on_finish(exit_code == 0)
+        end)
+      end,
+    })
+    if job_id <= 0 then
+      compile_state.compiling = false
+      compile_state.attempted = true
+      if callback then callback(false) end
+      return false
+    end
+  end
+
+  return false
+end
+
 function M.parser(bufnr)
   bufnr = bufnr or 0
   if not is_cobol(bufnr) or not vim.treesitter or not vim.treesitter.get_parser then return nil end
   local paths = vim.api.nvim_get_runtime_file("parser/cobol.so", false)
-  local opts = #paths > 0 and { path = paths[1], symbol_name = "COBOL" } or nil
+  if #paths == 0 then
+    M.ensure_parser()
+    return nil
+  end
+  local opts = { path = paths[1], symbol_name = "COBOL" }
   local ok_add = pcall(vim.treesitter.language.add, "cobol", opts)
   if not ok_add then ok_add = pcall(vim.treesitter.language.add, "cobol") end
   if not ok_add then return nil end

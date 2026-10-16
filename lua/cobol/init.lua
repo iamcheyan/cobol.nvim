@@ -1071,6 +1071,7 @@ function M.setup(opts)
   end
   M.setup_highlights()
   require("cobol.ast").setup_highlights()
+  pcall(require("cobol.ast").ensure_parser)
   setup_line_ruler()
 
   -- 创建用户命令
