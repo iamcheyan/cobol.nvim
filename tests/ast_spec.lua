@@ -166,8 +166,20 @@ assert(rainbow_structs[3].depth == 3, "Level 3 IF must have depth 3")
 -- Move cursor to IF C (line 7, 0-indexed row 6) and test update
 vim.api.nvim_win_set_cursor(0, { 7, 20 })
 local rainbow_state = ast.update(0, 0)
-assert(#rainbow_state.active == 3, "All 3 active levels should be marked")
+assert(#rainbow_state.active == 3, "All 3 active levels should be tracked in active state")
 assert(rainbow_state.active[1].depth == 3, "Active[1] must be innermost depth 3")
+
+-- Visual highlight extmarks must ONLY be applied to the innermost structure (depth 3)
+local rainbow_marks = vim.api.nvim_buf_get_extmarks(0, vim.api.nvim_create_namespace("cobol_ast_navigation"), 0, -1, { details = true })
+local has_s1, has_s2, has_s3 = false, false, false
+for _, m in ipairs(rainbow_marks) do
+  local details = m[4]
+  if details.hl_group == "CobolStructure1" then has_s1 = true end
+  if details.hl_group == "CobolStructure2" then has_s2 = true end
+  if details.hl_group == "CobolStructure3" then has_s3 = true end
+end
+assert(has_s3, "Innermost structure (depth 3) must be highlighted")
+assert(not has_s1 and not has_s2, "Outer enclosing structures must NOT be visually highlighted simultaneously")
 
 -- Test statusline and floating window APIs
 local stl = ast.statusline(0)
@@ -457,11 +469,11 @@ for _, m in ipairs(b_marks) do
   if details.hl_group and details.hl_group:find("CobolStructure%d") and row == 6 then
     has_else_badge = true
   end
-  if details.hl_group == "CobolParagraphScope" and row == 3 then
+  if details.hl_group == "CobolParagraphScope" then
     has_para_badge = true
   end
 end
 assert(has_else_badge, "ELSE keyword must have structure badge")
-assert(has_para_badge, "Paragraph header must have paragraph badge")
+assert(not has_para_badge, "Paragraph headers must NOT have orphaned badges")
 
 print("ast_spec: OK")

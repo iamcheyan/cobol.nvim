@@ -316,7 +316,11 @@ function M.at_cursor(bufnr, row, col)
       active[#active + 1] = item
     end
   end
-  table.sort(active, function(a, b) return a.depth > b.depth end)
+  table.sort(active, function(a, b)
+    if a.depth ~= b.depth then return a.depth > b.depth end
+    if a.start_row ~= b.start_row then return a.start_row > b.start_row end
+    return (a.close_row or a.end_row) < (b.close_row or b.end_row)
+  end)
   return active
 end
 
@@ -583,8 +587,6 @@ function M.setup_highlights()
     vim.api.nvim_set_hl(0, "CobolStructure" .. i, { fg = entry.fg, bg = entry.bg, bold = true, default = true })
     vim.api.nvim_set_hl(0, "CobolStructureLine" .. i, { fg = entry.line, bold = true, default = true })
   end
-  vim.api.nvim_set_hl(0, "CobolParagraphScope", { fg = "#ffffff", bg = "#2d4a60", bold = true, default = true })
-  vim.api.nvim_set_hl(0, "CobolParagraphLine", { fg = "#5a7a90", default = true })
   vim.api.nvim_set_hl(0, "CobolWaitingClosure", { fg = "#e5c07b", default = true })
 end
 
@@ -696,105 +698,60 @@ function M.update(bufnr, winid)
   local show_line = scope_cfg.enable ~= false
   local line_char = scope_cfg.char or "┆"
 
-  for _, item in ipairs(active) do
+  -- Highlight ONLY the single closest / innermost matching paired structure
+  local item = active[1]
+  if item and item.close_row and scope_cfg.enable ~= false then
     local idx = ((item.depth - 1) % #structure_palette + 1)
     local hl = "CobolStructure" .. idx
     local hl_line = "CobolStructureLine" .. idx
 
+    -- Opening keyword badge
     vim.api.nvim_buf_set_extmark(bufnr, ns, item.start_row, item.start_col, {
       end_row = item.start_row,
       end_col = math.min(item.start_col + #item.name, item.end_col),
       hl_group = hl,
       priority = 140,
     })
-    if item.close_row then
-      vim.api.nvim_buf_set_extmark(bufnr, ns, item.close_row, item.close_col, {
-        end_row = item.close_row,
-        end_col = item.end_col,
-        hl_group = hl,
-        priority = 140,
-      })
 
-      if scope_cfg.show_branches ~= false and item.branches then
-        for _, branch in ipairs(item.branches) do
-          vim.api.nvim_buf_set_extmark(bufnr, ns, branch.start_row, branch.start_col, {
-            end_row = branch.start_row,
-            end_col = branch.end_col,
-            hl_group = hl,
-            priority = 140,
+    -- Closing keyword badge
+    vim.api.nvim_buf_set_extmark(bufnr, ns, item.close_row, item.close_col, {
+      end_row = item.close_row,
+      end_col = item.end_col,
+      hl_group = hl,
+      priority = 140,
+    })
+
+    -- Intermediate branches (e.g. ELSE, WHEN)
+    if scope_cfg.show_branches ~= false and item.branches then
+      for _, branch in ipairs(item.branches) do
+        vim.api.nvim_buf_set_extmark(bufnr, ns, branch.start_row, branch.start_col, {
+          end_row = branch.start_row,
+          end_col = branch.end_col,
+          hl_group = hl,
+          priority = 140,
+        })
+      end
+    end
+
+    -- Vertical connecting dashed line
+    if show_line and item.close_row > item.start_row + 1 then
+      local col = item.start_col
+      for r = item.start_row + 1, item.close_row - 1 do
+        local line_str = vim.api.nvim_buf_get_lines(bufnr, r, r + 1, false)[1] or ""
+        if #line_str < col then
+          local pad = string.rep(" ", col - #line_str)
+          vim.api.nvim_buf_set_extmark(bufnr, ns, r, #line_str, {
+            virt_text = { { pad .. line_char, hl_line } },
+            virt_text_pos = "overlay",
+            priority = 135,
+          })
+        elseif line_str:sub(col + 1, col + 1) == " " then
+          vim.api.nvim_buf_set_extmark(bufnr, ns, r, col, {
+            virt_text = { { line_char, hl_line } },
+            virt_text_pos = "overlay",
+            priority = 135,
           })
         end
-      end
-
-      if show_line and item.close_row > item.start_row + 1 then
-        local col = item.start_col
-        for r = item.start_row + 1, item.close_row - 1 do
-          local line_str = vim.api.nvim_buf_get_lines(bufnr, r, r + 1, false)[1] or ""
-          if #line_str < col then
-            local pad = string.rep(" ", col - #line_str)
-            vim.api.nvim_buf_set_extmark(bufnr, ns, r, #line_str, {
-              virt_text = { { pad .. line_char, hl_line } },
-              virt_text_pos = "overlay",
-              priority = 135,
-            })
-          elseif line_str:sub(col + 1, col + 1) == " " then
-            vim.api.nvim_buf_set_extmark(bufnr, ns, r, col, {
-              virt_text = { { line_char, hl_line } },
-              virt_text_pos = "overlay",
-              priority = 135,
-            })
-          end
-        end
-      end
-    end
-  end
-
-  local root = M.parser(bufnr)
-  if root and show_line and scope_cfg.show_paragraphs ~= false then
-    local headers = {}
-    local function walk_p(n)
-      if n:type() == "paragraph_header" then
-        headers[#headers + 1] = n
-      end
-      for c in n:iter_children() do walk_p(c) end
-    end
-    walk_p(root)
-    for i, pnode in ipairs(headers) do
-      local psr, psc, _, pec = pnode:range()
-      local next_p = headers[i + 1]
-      local end_row = next_p and (next_p:start() - 1) or (line_count - 1)
-      while end_row > psr do
-        local l = vim.api.nvim_buf_get_lines(bufnr, end_row, end_row + 1, false)[1] or ""
-        if l:match("%S") then break end
-        end_row = end_row - 1
-      end
-      if crow >= psr and crow <= end_row then
-        vim.api.nvim_buf_set_extmark(bufnr, ns, psr, psc, {
-          end_row = psr,
-          end_col = pec,
-          hl_group = "CobolParagraphScope",
-          priority = 138,
-        })
-        if end_row > psr then
-          for r = psr + 1, end_row do
-            local line_str = vim.api.nvim_buf_get_lines(bufnr, r, r + 1, false)[1] or ""
-            if #line_str < psc then
-              local pad = string.rep(" ", psc - #line_str)
-              vim.api.nvim_buf_set_extmark(bufnr, ns, r, #line_str, {
-                virt_text = { { pad .. line_char, "CobolParagraphLine" } },
-                virt_text_pos = "overlay",
-                priority = 132,
-              })
-            elseif line_str:sub(psc + 1, psc + 1) == " " then
-              vim.api.nvim_buf_set_extmark(bufnr, ns, r, psc, {
-                virt_text = { { line_char, "CobolParagraphLine" } },
-                virt_text_pos = "overlay",
-                priority = 132,
-              })
-            end
-          end
-        end
-        break
       end
     end
   end
