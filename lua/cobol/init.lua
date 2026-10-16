@@ -1039,26 +1039,34 @@ local function setup_line_ruler()
       local line_len = #line
       local char = M.config.char or "│"
 
-      for _, col in ipairs(M.config.columns) do
-        local should_draw = false
-        if line_len < col then
-          should_draw = true
-        else
-          local b = line:byte(col)
-          if b == 32 or b == 9 then
-            should_draw = true
-          end
-        end
+      local ok_ast, ast = pcall(require, "cobol.ast")
+      local ascope = ok_ast and ast.active_scope
+      local in_scope = ascope and ascope.bufnr == buf and row > ascope.start_row and row < ascope.close_row
 
-        if should_draw then
-          local hl = (col == 7) and "CobolRulerLineInd" or "CobolRulerLine"
-          vim.api.nvim_buf_set_extmark(buf, M.ns_ruler, row, 0, {
-            virt_text = { { char, hl } },
-            virt_text_win_col = col - 1,
-            -- Preserve CursorColumn/CursorLine beneath every guide cell.
-            hl_mode = "combine",
-            ephemeral = true,
-          })
+      for _, col in ipairs(M.config.columns) do
+        -- If an active control structure is drawing its scope guide line at this column,
+        -- do not overwrite the dashed scope guide with the solid column ruler.
+        if not (in_scope and (col - 1 == ascope.col)) then
+          local should_draw = false
+          if line_len < col then
+            should_draw = true
+          else
+            local b = line:byte(col)
+            if b == 32 or b == 9 then
+              should_draw = true
+            end
+          end
+
+          if should_draw then
+            local hl = (col == 7) and "CobolRulerLineInd" or "CobolRulerLine"
+            vim.api.nvim_buf_set_extmark(buf, M.ns_ruler, row, 0, {
+              virt_text = { { char, hl } },
+              virt_text_win_col = col - 1,
+              -- Preserve CursorColumn/CursorLine beneath every guide cell.
+              hl_mode = "combine",
+              ephemeral = true,
+            })
+          end
         end
       end
     end,

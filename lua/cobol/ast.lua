@@ -3,12 +3,12 @@
 local M = {}
 local palette = { "#61afef", "#e5c07b", "#e06c75", "#98c379", "#c678dd", "#56b6c2" }
 local structure_palette = {
-  { fg = "#ffffff", bg = "#204a87", line = "#61afef" }, -- Level 1: Blue
-  { fg = "#ffffff", bg = "#8f5902", line = "#e5c07b" }, -- Level 2: Gold/Yellow
-  { fg = "#ffffff", bg = "#a40000", line = "#e06c75" }, -- Level 3: Red
-  { fg = "#ffffff", bg = "#2e7d32", line = "#98c379" }, -- Level 4: Green
-  { fg = "#ffffff", bg = "#7b1fa2", line = "#c678dd" }, -- Level 5: Purple
-  { fg = "#ffffff", bg = "#00838f", line = "#56b6c2" }, -- Level 6: Cyan
+  { fg = "#ffffff", bg = "#2563eb", line = "#60a5fa" }, -- Level 1: Vibrant Royal Blue
+  { fg = "#ffffff", bg = "#d97706", line = "#fbbf24" }, -- Level 2: Amber/Gold
+  { fg = "#ffffff", bg = "#dc2626", line = "#f87171" }, -- Level 3: Crimson Red
+  { fg = "#ffffff", bg = "#16a34a", line = "#4ade80" }, -- Level 4: Emerald Green
+  { fg = "#ffffff", bg = "#9333ea", line = "#c084fc" }, -- Level 5: Rich Purple
+  { fg = "#ffffff", bg = "#0891b2", line = "#22d3ee" }, -- Level 6: Ocean Cyan
 }
 
 local kinds = {
@@ -705,6 +705,15 @@ function M.update(bufnr, winid)
     local hl = "CobolStructure" .. idx
     local hl_line = "CobolStructureLine" .. idx
 
+    M.active_scope = {
+      bufnr = bufnr,
+      start_row = item.start_row,
+      close_row = item.close_row,
+      col = item.start_col,
+      char = line_char,
+      hl_line = hl_line,
+    }
+
     -- Opening keyword badge
     vim.api.nvim_buf_set_extmark(bufnr, ns, item.start_row, item.start_col, {
       end_row = item.start_row,
@@ -754,6 +763,8 @@ function M.update(bufnr, winid)
         end
       end
     end
+  else
+    M.active_scope = nil
   end
   local breadcrumb = table.concat(M.chain(bufnr, crow, ccol) or {}, " > ")
   local waiting = M.closure_stack(bufnr, crow, ccol)

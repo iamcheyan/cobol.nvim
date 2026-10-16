@@ -476,4 +476,9 @@ end
 assert(has_else_badge, "ELSE keyword must have structure badge")
 assert(not has_para_badge, "Paragraph headers must NOT have orphaned badges")
 
+-- 18. Active scope recording for line ruler coordination
+assert(ast.active_scope ~= nil, "ast.active_scope must be recorded for active structure")
+assert(ast.active_scope.col == 11, "Active structure must have col 11 (Area B)")
+assert(ast.active_scope.char == "┆", "Active structure scope char must be ┆")
+
 print("ast_spec: OK")
