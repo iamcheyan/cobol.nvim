@@ -216,14 +216,19 @@ function M.structures(bufnr)
       result[#result + 1] = item
       pending[#pending + 1] = item
     elseif ntype:match("^END_") then
-      local item
+      local match_idx = nil
       for i = #pending, 1, -1 do
         if pending[i].end_node_type == ntype then
-          item = table.remove(pending, i)
+          match_idx = i
           break
         end
       end
-      if item then
+      if match_idx then
+        local item = pending[match_idx]
+        while #pending > match_idx do
+          table.remove(pending)
+        end
+        table.remove(pending, match_idx)
         local sr, sc = node:start()
         local er, ec = node:end_()
         item.close_node = node
@@ -241,7 +246,54 @@ function M.structures(bufnr)
   visit(root)
   for _, item in ipairs(result) do
     if not item.depth then item.depth = 1 end
+    if not item.branches then item.branches = {} end
   end
+
+  local function collect_branches(node)
+    local ntype = node:type()
+    if ntype == "else_header" then
+      local nsr, nsc, _, nec = node:range()
+      local best_item = nil
+      for _, item in ipairs(result) do
+        if item.name == "IF" and item.close_row and nsr > item.start_row and nsr < item.close_row then
+          if not best_item or item.start_row > best_item.start_row then
+            best_item = item
+          end
+        end
+      end
+      if best_item then
+        best_item.branches[#best_item.branches + 1] = {
+          name = "ELSE",
+          start_row = nsr,
+          start_col = nsc,
+          end_col = math.min(nsc + 4, nec),
+        }
+      end
+    elseif ntype == "when" then
+      local nsr, nsc, _, nec = node:range()
+      local best_item = nil
+      for _, item in ipairs(result) do
+        if item.name == "EVALUATE" and item.close_row and nsr > item.start_row and nsr < item.close_row then
+          if not best_item or item.start_row > best_item.start_row then
+            best_item = item
+          end
+        end
+      end
+      if best_item then
+        best_item.branches[#best_item.branches + 1] = {
+          name = "WHEN",
+          start_row = nsr,
+          start_col = nsc,
+          end_col = math.min(nsc + 4, nec),
+        }
+      end
+    end
+    for child in node:iter_children() do
+      collect_branches(child)
+    end
+  end
+  collect_branches(root)
+
   table.sort(result, function(a, b)
     if a.start_row == b.start_row then return a.start_col < b.start_col end
     return a.start_row < b.start_row
@@ -531,6 +583,8 @@ function M.setup_highlights()
     vim.api.nvim_set_hl(0, "CobolStructure" .. i, { fg = entry.fg, bg = entry.bg, bold = true, default = true })
     vim.api.nvim_set_hl(0, "CobolStructureLine" .. i, { fg = entry.line, bold = true, default = true })
   end
+  vim.api.nvim_set_hl(0, "CobolParagraphScope", { fg = "#ffffff", bg = "#2d4a60", bold = true, default = true })
+  vim.api.nvim_set_hl(0, "CobolParagraphLine", { fg = "#5a7a90", default = true })
   vim.api.nvim_set_hl(0, "CobolWaitingClosure", { fg = "#e5c07b", default = true })
 end
 
@@ -661,6 +715,17 @@ function M.update(bufnr, winid)
         priority = 140,
       })
 
+      if scope_cfg.show_branches ~= false and item.branches then
+        for _, branch in ipairs(item.branches) do
+          vim.api.nvim_buf_set_extmark(bufnr, ns, branch.start_row, branch.start_col, {
+            end_row = branch.start_row,
+            end_col = branch.end_col,
+            hl_group = hl,
+            priority = 140,
+          })
+        end
+      end
+
       if show_line and item.close_row > item.start_row + 1 then
         local col = item.start_col
         for r = item.start_row + 1, item.close_row - 1 do
@@ -680,6 +745,56 @@ function M.update(bufnr, winid)
             })
           end
         end
+      end
+    end
+  end
+
+  local root = M.parser(bufnr)
+  if root and show_line and scope_cfg.show_paragraphs ~= false then
+    local headers = {}
+    local function walk_p(n)
+      if n:type() == "paragraph_header" then
+        headers[#headers + 1] = n
+      end
+      for c in n:iter_children() do walk_p(c) end
+    end
+    walk_p(root)
+    for i, pnode in ipairs(headers) do
+      local psr, psc, _, pec = pnode:range()
+      local next_p = headers[i + 1]
+      local end_row = next_p and (next_p:start() - 1) or (line_count - 1)
+      while end_row > psr do
+        local l = vim.api.nvim_buf_get_lines(bufnr, end_row, end_row + 1, false)[1] or ""
+        if l:match("%S") then break end
+        end_row = end_row - 1
+      end
+      if crow >= psr and crow <= end_row then
+        vim.api.nvim_buf_set_extmark(bufnr, ns, psr, psc, {
+          end_row = psr,
+          end_col = pec,
+          hl_group = "CobolParagraphScope",
+          priority = 138,
+        })
+        if end_row > psr then
+          for r = psr + 1, end_row do
+            local line_str = vim.api.nvim_buf_get_lines(bufnr, r, r + 1, false)[1] or ""
+            if #line_str < psc then
+              local pad = string.rep(" ", psc - #line_str)
+              vim.api.nvim_buf_set_extmark(bufnr, ns, r, #line_str, {
+                virt_text = { { pad .. line_char, "CobolParagraphLine" } },
+                virt_text_pos = "overlay",
+                priority = 132,
+              })
+            elseif line_str:sub(psc + 1, psc + 1) == " " then
+              vim.api.nvim_buf_set_extmark(bufnr, ns, r, psc, {
+                virt_text = { { line_char, "CobolParagraphLine" } },
+                virt_text_pos = "overlay",
+                priority = 132,
+              })
+            end
+          end
+        end
+        break
       end
     end
   end

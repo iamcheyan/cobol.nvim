@@ -139,7 +139,12 @@ gcc -O2 -shared -fPIC \
 
 With the parser installed:
 
-- **Structure Scope Badges & Connecting Lines**: When the cursor enters a control block, opening keywords (e.g. `IF`, `EVALUATE`, `PERFORM`, `EXEC SQL`) and matching `END-*` keywords are highlighted with **distinct colored background badges and crisp bold white text**. Simultaneously, a **vertical dashed guide line (`┆`)** is drawn down the aligned column between the opening and closing keywords, visually enclosing the entire block so its closure is immediately recognizable. Nested structures cycle through a rainbow depth palette (Level 1 Blue `#204a87`, Level 2 Gold `#8f5902`, Level 3 Red `#a40000`, Level 4 Green `#2e7d32`, Level 5 Purple `#7b1fa2`, Level 6 Cyan `#00838f`). Customization: `structure_scope = { enable = true, char = "┆" }`.
+- **Structure Scope Badges & Connecting Lines**:
+  - **Closed Control Blocks**: Opening keywords (e.g. `IF`, `EVALUATE`, `PERFORM`, `READ`, `WRITE`, `SEARCH`, `EXEC SQL`, `XML PARSE`, `JSON PARSE`, etc.) and matching `END-*` keywords are highlighted with **distinct colored background badges and crisp bold white text**. A **vertical dashed guide line (`┆`)** is drawn down the aligned column across all inner lines, clearly enclosing the entire block.
+  - **Branches (`ELSE` & `WHEN`)**: Intermediate branches (e.g. `ELSE` in `IF`, `WHEN` in `EVALUATE`) receive matching badge highlights, clearly segmenting branch boundaries like an HTML/XML tag tree.
+  - **Paragraph Scopes**: When inside a Procedure Division paragraph, the paragraph header (e.g. `8100-LOG.`) receives a dedicated slate badge (`#2d4a60`), and a vertical guide line down column 7 spans all statements in the paragraph up to the final line.
+  - **Rainbow Depth Palette**: Level 1 Blue `#204a87`, Level 2 Gold `#8f5902`, Level 3 Red `#a40000`, Level 4 Green `#2e7d32`, Level 5 Purple `#7b1fa2`, Level 6 Cyan `#00838f`.
+  - **Customization**: `structure_scope = { enable = true, char = "┆", show_branches = true, show_paragraphs = true }`.
 - **AST Breadcrumb**: Tracks the full structural hierarchy (`Division > Section > Paragraph > IF > EVALUATE > WHEN`). The vendored grammar keeps statements, headers and `END-*` tokens as flat siblings, so the chain is rebuilt from the paired structure ranges instead of tree ancestry: a `WHEN` clause and its enclosing `IF`/`EVALUATE` are resolved by range, and a division, section or paragraph contributes only its header line. Exposed through:
   - Winbar: Automatically integrated when `show_breadcrumbs = true` in config. The breadcrumb is clipped from the left when the window is narrow, so the innermost structures stay visible.
   - Statusline: `require("cobol.ast").statusline(bufnr)` returns formatted breadcrumb string.

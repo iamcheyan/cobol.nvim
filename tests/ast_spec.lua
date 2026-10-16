@@ -432,4 +432,36 @@ assert(has_opening_badge, "Opening IF should have structure badge")
 assert(has_closing_badge, "Closing END-IF should have structure badge")
 assert(has_connecting_line, "Body line should have connecting dashed line")
 
+-- 17. IF with ELSE and Paragraph Scope
+vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+  "       IDENTIFICATION DIVISION.",
+  "       PROGRAM-ID. BRANCHTEST.",
+  "       PROCEDURE DIVISION.",
+  "       8100-LOG.",
+  "           IF WS-STATUS = \"00\"",
+  "               DISPLAY \"OK\"",
+  "           ELSE",
+  "               DISPLAY \"ERR\"",
+  "           END-IF.",
+  "       8200-EXIT.",
+  "           STOP RUN.",
+})
+vim.api.nvim_win_set_cursor(0, { 6, 20 })
+local branch_state = ast.update(0, 0)
+assert(#branch_state.active == 1, "IF should be active")
+local b_marks = vim.api.nvim_buf_get_extmarks(0, vim.api.nvim_create_namespace("cobol_ast_navigation"), 0, -1, { details = true })
+local has_else_badge = false
+local has_para_badge = false
+for _, m in ipairs(b_marks) do
+  local row, col, details = m[2], m[3], m[4]
+  if details.hl_group and details.hl_group:find("CobolStructure%d") and row == 6 then
+    has_else_badge = true
+  end
+  if details.hl_group == "CobolParagraphScope" and row == 3 then
+    has_para_badge = true
+  end
+end
+assert(has_else_badge, "ELSE keyword must have structure badge")
+assert(has_para_badge, "Paragraph header must have paragraph badge")
+
 print("ast_spec: OK")
