@@ -1,47 +1,50 @@
 # cobol.nvim
 
-固定形式 COBOL の読解・編集を支援する Neovim プラグインです。列ガイド、定義と Copybook の検索、構造の可視化、レコードサイズの概算、補完、GnuCOBOL による診断を提供します。COBOL の言語サーバーは不要です。
+Neovim 向けの COBOL 編集サポート：固定形式の桁定規、定義と Copybook のナビゲーション、Tree-sitter による構造ヒント、レコード長の見積もり、任意の補完、GnuCOBOL 診断。COBOL の言語サーバーは不要です。
 
-[English](README.md) · [简体中文](README.zh-CN.md)
+[English](README.md) · [简体中文](README.zh-CN.md) · Neovim ヘルプ：`:help cobol.nvim`
 
-![Syms の構造アウトラインと IF/ELSE/END-IF のスコープ表示](assets/image-20261016-111954.png)
+![固定形式の桁定規、Winbar パンくず、カーソル行のレコード長](assets/fixed-format-ruler.png)
 
-新しいスクリーンショットには、オプションの Syms アウトライン、固定形式の列ガイド、Winbar のパンくず、現在の `IF ... ELSE ... END-IF` に付く色付きの開始・分岐・終了マークと縦の破線が写っています。Syms はこの画面で使用している別のアウトライン UI です。本プラグインが同梱するアウトライン用バックエンドは Aerial 向けです。色や画面構成は利用者の Neovim 設定によって異なります。
+スクリーンショットは固定形式プログラムでの動作例です。7/8/12/73 列の桁定規、Winbar のパンくず（`DATA DIVISION`）、カーソル行に表示されるレコード長の見積もりが見えます。テーマとレイアウトは各自の Neovim 設定によります。
 
-以前の [Aerial と Copybook プレビューの画面](screenshot.png) も参照できます。
+## 機能一覧
 
-## 主な機能
+| 分類 | 内容 | スクリーンショット |
+| --- | --- | --- |
+| 固定形式レイアウト | 7・8・12・73 列の桁定規、列ジャンプ、72 列超えのハイライト | 上記 |
+| 構造アウトライン | アウトラインサイドバーの Division / Section / Paragraph / 制御構造 / データ階層ツリー | [下記](#構造アウトラインとスコープ表示) |
+| 定義と Copybook の移動 | `gd`、`gf`、`K` プレビュー、ジャンプリスト | [下記](#定義と-copybook-の移動) |
+| レコード長の計算 | `:CobolCalcRecord` による DISPLAY / COMP / COMP-3 / OCCURS / REDEFINES の一覧 | [下記](#pic-とレコード長の計算) |
+| 診断 | 非同期 `cobc -fsyntax-only`、行内表示と Quickfix | [下記](#診断) |
+| 折りたたみと整形 | Division / Section / Paragraph / データ項目単位の折りたたみ、予約語の大文字化 | [下記](#折りたたみと整形) |
 
-| 分野 | 機能 |
-| --- | --- |
-| 固定形式 | 7、8、12、73 列のガイド、72 列を超える部分の強調、列へのジャンプ、Tab の列位置合わせ |
-| 構造 | Tree-sitter によるパンくず、最も内側の対応するブロックの色付きマークと接続線、`%` による対応箇所への移動、テキストオブジェクト |
-| 移動と編集 | `gd` による定義検索、`gf` による Copybook の表示、`K` によるプレビュー、コメント切り替え、予約語の大文字化 |
-| データ | PIC とレコードサイズの概算、01/88 レベルの強調、親項目のヒント |
-| 補完・アウトライン | 任意の blink.cmp 補完ソースと Aerial 用 COBOL バックエンド |
-| 診断・実行 | 非同期の `cobc` 構文チェック、Quickfix、プロジェクトのビルド・実行・テスト |
+## 対象
 
-## 必要条件とインストール
+固定形式 COBOL を学ぶ初学者、`.cob` / `.cbl` / `.cobol` プログラムを保守する開発者、Copybook と伝統的な Division / Section / Paragraph 構造を使うプロジェクト。
+
+## 必要な環境
 
 - Neovim 0.10 以降。
-- Tree-sitter による構造表示には COBOL パーサーが必要です。パーサーがない場合、起動時に `gcc`、`clang`、`cc` のいずれかを使って自動ビルドを試みます。C コンパイラーがなく、ビルド済みパーサーも導入されていない場合は AST 機能を使えません。
-- GnuCOBOL (`cobc`) は診断・ビルドに必要ですが、その他の編集機能には不要です。
-- [blink.cmp](https://github.com/saghen/blink.cmp) と [Aerial](https://github.com/stevearc/aerial.nvim) は任意です。それぞれ補完メニューとアウトラインを提供します。
+- 同梱の Tree-sitter パーサーを**ビルド**するには C コンパイラ（`gcc`、`clang`、`cc`）が必要です。起動時に不足しているパーサーのコンパイルを試みます。AST 機能にはパーサーが必要ですが、`cobol.so` があれば実行時にコンパイラは不要です。
+- 任意：[blink.cmp](https://github.com/saghen/blink.cmp)（補完）、GnuCOBOL（`cobc`、診断とビルド・実行）、Aerial または Syms（アウトラインサイドバー）。
 
-[lazy.nvim](https://github.com/folke/lazy.nvim) の設定例：
+## インストール
+
+[lazy.nvim](https://github.com/folke/lazy.nvim) の場合：
 
 ```lua
 {
   "iamcheyan/cobol.nvim",
-  build = "bash scripts/build_parser.sh", -- 任意：インストール時にパーサーをビルド
+  build = "bash scripts/build_parser.sh", -- 任意：インストール時に Tree-sitter パーサーをビルド
   ft = { "cobol", "cbl", "cob" },
   opts = {},
 }
 ```
 
-`build` を省略しても、C コンパイラーがあれば起動時にパーサーの自動ビルドを試みます。手動ビルドはリポジトリのルートで `./scripts/build_parser.sh` を実行してください。GnuCOBOL 自体は別途インストールします。
+`build` フックがなくても、起動時に不足しているパーサーのコンパイルを試みます。C コンパイラが無い場合は、導入後に `./scripts/build_parser.sh` を一度実行してください。
 
-Aerial を使う場合は、Aerial 自体をインストールして COBOL バックエンドを指定します：
+任意のアウトラインサイドバーを使うには、Aerial を導入して COBOL バックエンドを有効にします：
 
 ```lua
 {
@@ -54,17 +57,17 @@ Aerial を使う場合は、Aerial 自体をインストールして COBOL バ�
 }
 ```
 
-本プラグインにはアウトラインを開く既定のキーはありません。Aerial は `:AerialToggle` で切り替えられます。`<leader>cs` を使いたい場合は、自分の設定に `vim.keymap.set("n", "<leader>cs", "<cmd>AerialToggle<CR>")` を追加してください。Syms を使う場合は Syms 側で設定します。
+アウトラインのキーマップは既定では設定されません。必要なら自分で設定します：
 
-## 最初の使い方
+```lua
+vim.keymap.set("n", "<leader>cs", "<cmd>AerialToggle<CR>", { desc = "Toggle outline" })
+```
 
-1. COBOL ファイルを開き、`:set filetype?` で `cobol`、`cbl` または `cob` を確認します。固定形式では 7 列目が指示領域、8–11 列が Area A、12–72 列が Area B、73 列目以降が識別領域です。
-2. 段落名やデータ名の上で `gd`、`COPY` 文で `gf`、定義のプレビューには `K` を使います。`<C-o>` で元の位置に戻れます。
-3. 01 レコードまたはフィールドで `<leader>cr` / `:CobolCalcRecord` を実行して概算のレイアウトを確認します。
-4. GnuCOBOL がある場合は保存するか `<leader>cl` / `:CobolLint` で構文を検査します。`<leader>cq` / `:CobolQuickfix` で問題の一覧を開けます。
-5. Division、Section、Paragraph、データ項目の折りたたみには `za`、`zc`、`zo` を使います。アウトラインは必要に応じて Aerial などを別途インストールします。
+プラグインは `cobol`、`cbl`、`cob` の filetype にアタッチします。認識されない `.cpy` は `:set filetype?` で確認し、必要なら `cobol` に設定してください。
 
-例えば次の固定形式ソースを `.cob` ファイルに保存します（行頭の空白もソース形式の一部です）：
+## 最初のワークフロー
+
+以下を**固定形式**の `.cob` ファイルとして保存します。行頭の空白はソース形式の一部です：
 
 ```cobol
        IDENTIFICATION DIVISION.
@@ -79,49 +82,103 @@ Aerial を使う場合は、Aerial 自体をインストールして COBOL バ�
            STOP RUN.
 ```
 
-`WS-STATUS` 上で `gd` を押して宣言へ移動し、`<C-o>` で戻れます。パーサーがあれば `IF` と `END-IF` の間を `%` で移動でき、対応するブロックが強調されます。01 項目上の `:CobolCalcRecord` でサイズを概算し、`cobc` があれば `:CobolLint` で構文を確認します。`COPY "CUSTOMER.CPY".` 上では `gf` で Copybook を開き、`K` でプレビューできます。
+1. ファイルを開いて桁定規を確認します。`g8`、`g12` で Area A / Area B に移動できます。
+2. `WS-STATUS` の上で `gd`、`<C-o>` で戻ります。`IF` または `END-IF` の上で `%` を押すと対応するキーワードへ移動します。
+3. `01` 項目で `:CobolCalcRecord` を実行します。`cobc` があれば `:CobolLint`、続けて `:CobolQuickfix` を使います。`za` で現在の Division / Section / Paragraph / データ項目を折りたたみます。
 
-## 固定形式の編集と移動
+## 固定形式と編集
 
-列ガイドは `:CobolGuideToggle` で切り替えます。`:CobolGuideDisable` は表示と診断のアタッチを解除して現在の診断を消去しますが、既存のバッファー内キーマップや折りたたみ設定は削除しません。`:CobolGuideEnable` で再度アタッチします。ガイド切り替え用の既定のキーはありません。
+固定形式では 1〜6 列が連番領域、7 列が表示領域（`*` コメント、`/` 改ページ、`-` 継続行）、8〜11 列が Area A、12〜72 列が Area B、73 列以降が識別領域です。プラグインは 7・8・12・73 列に細い定規を描き、72 列を超えた文字列をハイライトします（固定形式のコンパイラはこの領域を無視します）。
 
-| キー | 用途 |
+| キー | 移動先 |
 | --- | --- |
-| `g7` / `g8` / `g12` / `g73` | 固定形式の各列へ移動 |
-| `gd` / `:CobolGotoDef` | 現在のファイルと再帰的に参照される Copybook の定義を検索し、同名なら候補を選択（字下げなしの自由形式の定義は現状の索引で見落とす場合あり） |
-| `gf` / `:CobolGotoCopybook` | `COPY` 文の Copybook を開く |
-| `K` / `:CobolPreview` | 定義または Copybook を浮動ウィンドウに表示 |
-| `gcc`、Visual `gc`、`<leader>c*` | 現在行または選択行のコメントを切り替え |
+| `g7` | 表示領域 |
+| `g8` | Area A |
+| `g12` | Area B |
+| `g73` | 識別領域 |
 
-固定形式の Insert モードでカーソル前が空白のみの場合、`<Tab>` は 7、8、12 列の位置合わせを行い、以降は `shiftwidth` 分進みます。`<S-Tab>` は逆方向へ移動します。自由形式ではこの固定列用の動作は使いません。固定形式のコメントは 7 列目の `*`、自由形式は `*>` です。`:CobolToggleComment` は行範囲も受け付けます。
+固定形式では、カーソル前が空白のみのとき Insert モードの `<Tab>` が 7・8・12 列に順に停まり、その後は `shiftwidth` でインデントします。`<S-Tab>` は逆順に停まり、ソース本文は削除しません。自由形式には列ストップはありません。
 
-固定形式のインデントは一般的な制御ブロックやデータレベルを扱うヒューリスティックです。`gg=G` でファイル全体、Visual 選択後の `=` で一部を整形できます。連続行や方言固有の構文は、列位置とコンパイラーの結果を確認してください。同じ操作については[中国語の機能説明](README.zh-CN.md#固定格式与编辑)も参照できます。
+`:CobolGuideToggle` は視覚ヒントと診断のアタッチを切り替え、`:CobolGuideEnable` / `:CobolGuideDisable` は再アタッチ／解除します（解除時は現在の診断も消去）。既存のマッピングと折りたたみ設定はそのままです。
 
-## Tree-sitter による構造表示
+`gcc`、ビジュアルモードの `gc`、`<leader>c*`、`:CobolToggleComment` は検出したソース形式に従ってコメントを切り替えます（固定形式は 7 列の `*`、自由形式は `*>`）。コマンドは行範囲を指定できます。`:CobolFormatCase` は予約語を大文字化し、文字列・コメント・ユーザー定義名は保持します。範囲を指定しない場合はバッファ全体を処理します。
 
-パーサーを利用できる場合、カーソルを含む**対応する終端を持つ最も内側のブロック**に焦点を当てます。開始・終了キーワードには深さごとに異なる背景色のマークを付け、間に縦の破線（既定では `┆`）を描きます。`ELSE` と `WHEN` にも分岐マークを付けられます。`structure_scope = { enable = true, char = "┆", show_branches = true }` で設定できます。外側の複数ブロックを同時に強調するわけではありません。
+## 構造アウトラインとスコープ表示
 
-- Winbar は Division → Section → Paragraph → IF → EVALUATE → WHEN などの構造をパンくずとして表示します。狭いウィンドウでは内側を優先して左側を省略します。`:lua require("cobol.ast").show_breadcrumb_float()` で全体を浮動表示できます。
-- Winbar 右側はカーソルを含む**解析済み・対応付け済み**ブロックの終了キーワードを内側から順に示します。`:CobolStructure` はこの情報を**通知**で表示し、`:lua require("cobol.ast").show_waiting_closures_float()` は別途浮動ウィンドウを開きます。終端のないブロックは対応付けできないため、欠落した `END-*` の検出には使えません。構文エラーの確認には `:CobolLint` を使ってください。
-- 対応する開始・終了キーワードで `%` を押すと双方向に移動します。`vaf` / `vif` は IF の全体 / 内側、`vae` / `vie` は EVALUATE、`vap` / `vip` は PERFORM の範囲を選択します。演算子との組み合わせも可能です。
-- 対応構造には `IF`、`EVALUATE`、`PERFORM`、`SEARCH`、`READ`、`WRITE`、`REWRITE`、`DELETE`、`START`、`STRING`、`UNSTRING` のほか、`XML PARSE`、`JSON PARSE`、`EXEC SQL`、`CLASS-ID`、`METHOD-ID`、`FACTORY`、`OBJECT` などが含まれます。文法にはコーパステストが同梱されています。
-- Aerial 用バックエンドは Division、Section、Paragraph、FD/SD、01 レコードに加え、解析できた制御構造や SQL 文などを階層表示できます。Aerial を使わなくても他の編集・移動機能は利用できます。
+![Aerial アウトライン、固定形式の桁定規、Winbar パンくず](assets/outline-aerial.png)
 
-本プラグインの折りたたみ式は Division、Section、Paragraph、データ項目を対象とします。**IF や EVALUATE の折りたたみそのものは生成しません**。別の折りたたみ提供元が制御ブロックの折りたたみを生成した場合、Tree-sitter を使って条件などを含む折りたたみ見出しを表示できます。`folding.foldtext` は `"auto"`（既定、nvim-ufo が管理する場合は譲る）、`"plugin"`（常に本プラグインを使用）、`"off"`（設定しない）を選べます。
+アウトラインサイドバーは任意です（Aerial または Syms）。プラグインは Aerial 用の COBOL バックエンドを同梱しています。バックエンドは Division、Section、Paragraph、プログラム ID、FD/SD、01 レベルのレコードを認識し、パーサーがあれば制御構造、分岐、ファイル操作、呼び出し、埋め込み SQL も扱います。アウトラインを導入しなくても他の機能は動作します。
 
-## 補完、整形、サイズの概算
+![対になった IF / ELSE / END-IF のスコープバッジとアウトラインサイドバー](assets/image-20261016-111954.png)
 
-blink.cmp をインストールすると、`cobol`、`cbl`、`cob` バッファーに COBOL の補完ソースを登録します。予約語、構文スニペット、現在のファイルのデータ名・段落名、参照された Copybook の名前などを候補として提示します。COBOL LSP は必要ありません。
+上のキャプチャではアウトラインに Syms を使っています（Aerial でも Syms でも動作します）。エディタでは現在の `IF ... ELSE ... END-IF` ブロックが色付きの開始・分岐・終了バッジと縦の破線で示され、Winbar に構造のパンくずが表示されます。
 
-`:CobolFormatCase` は認識できる予約語を大文字にします。**範囲なしではバッファー全体**を処理し、Visual 選択や行範囲を指定した場合はその範囲だけを処理します。文字列、コメント、ユーザー定義名は維持します。完全なソース整形ではありません。
+パーサーがあると、カーソル位置の**最も内側の対になった構造**に、色付きの開始・終了バッジ、破線の接続線、`ELSE` / `WHEN` の分岐バッジを描画します。対応する組には `IF`、`EVALUATE`、`PERFORM`、`SEARCH`、`READ`、`WRITE`、`REWRITE`、`DELETE`、`START`、`STRING`、`UNSTRING`、および `XML PARSE`、`JSON PARSE`、`EXEC SQL`、`CLASS-ID`、`METHOD-ID`、`FACTORY`、`OBJECT` が含まれます。
 
-`<leader>cr` / `:CobolCalcRecord` は、DISPLAY、COMP/BINARY、COMP-3/PACKED-DECIMAL、基本項目の `OCCURS`、`REDEFINES` などについてサイズとオフセットを概算します。**グループ項目の OCCURS は子項目の合計を繰り返し回数倍せず、より大きい REDEFINES の重ね合わせも合計サイズを増やしません。** 実際の ABI・ファイル長は対象環境のコンパイラーで検証してください。ステータスラインへの組み込みには `require("cobol.statusline").component()` または `.format()` を利用できます。contextline がある場合は COBOL 用のコンテキスト情報も登録できます。
+設定：
 
-## GnuCOBOL の診断とプロジェクト設定
+```lua
+structure_scope = { enable = true, char = "┆", show_branches = true }
+```
 
-診断は `cobc -fsyntax-only` を非同期で実行します。保存後、編集から 600 ms 経過後、Insert モードを抜けた後に実行でき、未保存の内容は可能な場合は標準入力から渡します。Copybook のエラーは開いている Copybook と参照元の `COPY` 行にも関連付けられます。自動診断は `:CobolDiagnosticsToggle` で切り替えられます。
+Winbar のパンくずは `Division > Section > Paragraph > 制御構造 > WHEN` を表示します。完全な階層は `:lua require("cobol.ast").show_breadcrumb_float()` で確認できます。`:CobolStructure` はカーソル位置で期待される `END-*` キーワードを内側から順に通知し、フロート表示は `:lua require("cobol.ast").show_waiting_closures_float()` です。これは**終端キーワードの欠落チェッカーではありません**（対にできないブロックは通常表示されません）。構文確認には `:CobolLint` を使ってください。
 
-現在のファイルから上方向に `.cobol.json`、Makefile、Git ルートを探してプロジェクトを判定します。必要ならプロジェクトルートに `.cobol.json` を作成します：
+`%` は上記構造の開始キーワードと終了キーワードの間を双方向に移動し、一致がなければ Neovim の既定動作にフォールバックします。テキストオブジェクト `af`/`if`、`ae`/`ie`、`ap`/`ip` は `IF`、`EVALUATE`、`PERFORM` ブロックの内部／全体を選択します（`vaf`、`daf` など）。
+
+## 定義と Copybook の移動
+
+![`K` で Copybook をフロート表示](assets/copybook-preview.png)
+
+- `gd` / `:CobolGotoDef`：現在のファイルと再帰的に参照される Copybook を検索します。同名候補が複数ある場合は選択できます。
+- `gf` / `:CobolGotoCopybook`：`COPY` 文が参照するファイルを開きます。
+- `K` / `:CobolPreview`：定義や Copybook をフロートウィンドウでプレビューします（上図）。
+- `<C-o>` / `<C-i>`：Neovim のジャンプリストを前後に移動します。
+
+パスは `copybook_paths` またはプロジェクトプロファイルから取得し、言語サーバーは使いません。固定形式の列プレフィックスを持たない自由形式の宣言は現在の定義インデックスで見つからないことがあるため、見つからない場合はソース形式と検索パスを確認してください。
+
+## PIC とレコード長の計算
+
+![`:CobolCalcRecord` がオフセット、PIC、サイズ、合計を表示](assets/record-layout.png)
+
+`<leader>cr` または `:CobolCalcRecord` は、現在のレコード／項目のレイアウト表を開き、一般的な `DISPLAY`、`COMP`/`BINARY`、`COMP-3`/`PACKED-DECIMAL`、`OCCURS`、`REDEFINES` のサイズを見積もります（上図）。
+
+これらの値は一般的な GnuCOBOL とプラットフォームの慣例に基づく**見積もり**です。実際の ABI と格納レイアウトはコンパイラが正となります。特に、グループレベルの `OCCURS` は下位項目の合計に重複計上されず、より大きい `REDEFINES` の上書きも合計を増やしません。表示される合計長はその前提で読んでください。
+
+## 診断
+
+![保存後にコンパイラエラーが行内に表示される](assets/diagnostics.png)
+
+プラグインは次を実行します：
+
+```text
+cobc -fsyntax-only ...
+```
+
+保存後、テキスト変更のデバウンス後、Insert モードを抜けたときに非同期で実行します。`<leader>cl` または `:CobolLint` で即時実行、`<leader>cq` または `:CobolQuickfix` で Quickfix リストを開き、`:CobolDiagnosticsToggle` で自動診断を切り替えます。未保存の内容は可能な限り標準入力経由でコンパイラに渡します。`cobc` が無くてもプラグインは落ちません。GnuCOBOL を導入するか `cobc_command` を設定してください。
+
+## 折りたたみと整形
+
+![Division・Section・Paragraph 単位で折りたたむ](assets/folding.png)
+
+Division、Section、Paragraph、データ項目のネイティブ折りたたみを提供します。`za` で切り替え、`zc` で閉じ、`zo` で開きます（上図）。`IF`/`EVALUATE` などの制御構造の折りたたみは他の折りたたみ提供元によるもので、存在する場合は生の行数ではなく構造サマリーを表示できます。
+
+`folding.foldtext` が折りたたみテキストの所有権を決めます：
+
+| 値 | 動作 |
+| --- | --- |
+| `"auto"`（既定） | nvim-ufo が管理していない限り COBOL のサマリーを設定します。 |
+| `"plugin"` | 常に COBOL 構造のサマリーを使います。 |
+| `"off"` | `foldtext` に触れません。 |
+
+固定形式のバッファは一般的なブロックとデータレベルに COBOL 対応のインデントを使います。`gg=G` で全体、ビジュアルモードの `=` で選択範囲を整形します。連番／表示領域の行、継続行、コメント、73〜80 列の非空テキストは保持されます。
+
+## 補完
+
+`blink.cmp` を導入すると、`cobol`、`cbl`、`cob` バッファ向けに補完ソースを登録します。一般的な動詞と句、`IF ... END-IF` や `PERFORM ... END-PERFORM` のような展開可能なスニペット、バッファ内で宣言された名前、参照 Copybook のシンボルを候補にします。大文字小文字は区別せず、`PER`、`WS-`、`COPY` などの接頭辞を入力したときに特に有用です。補完は任意で、無くても他の機能は動作します。
+
+## プロジェクト設定
+
+プロジェクトルートに `.cobol.json` を作成します：
 
 ```json
 {
@@ -130,7 +187,7 @@ blink.cmp をインストールすると、`cobol`、`cbl`、`cob` バッファ�
   "compiler": "cobc",
   "copybook_paths": ["copy", "cpy"],
   "warnings": ["all", "no-obsolete"],
-  "compiler_args": [],
+  "compiler_args": ["-Wall"],
   "commands": {
     "build": ["make", "build"],
     "run": ["make", "run"],
@@ -139,29 +196,70 @@ blink.cmp をインストールすると、`cobol`、`cbl`、`cob` バッファ�
 }
 ```
 
-Copybook の相対パスはプロジェクトルートから解決されます。`source_format` は `fixed`、`free`、`auto` に対応します。ファイルがなければプラグイン側の設定を使用し、不正な JSON またはフィールドは警告して安全な既定値へ戻します。`commands` はシェルを通さず引数配列として実行します。未指定なら Makefile の `build`/`all`、`run`、`test`/`check` ターゲットを探し、単一ファイルには `cobc` を使用します。複数ファイルのプロジェクトには独自のビルドルールを用意してください。コマンド実行前に現在のファイルを保存してください。ビルドルールはあるのに `run` がなければ、実行ファイルを推測せずエラーにします。
+相対パスは検出したプロジェクトルートから解決し、ナビゲーション、補完、診断、単一ファイルのビルドが同じ Copybook パス、コンパイラ、形式、方言、追加引数を共有します。プロファイルは任意で、`.cobol.json` が無ければ既定値を静かに使います。JSON やフィールドが不正な場合は警告し、安全な既定値にフォールバックします。コマンド値は引数配列で、**シェルを経由しません**。コマンドを明示しない場合、Makefile の `build`/`all`、`run`、`test`/`check` を認識します。Makefile の無い単一ソースは `cobc` にフォールバックします。プロジェクトコマンドの実行前にバッファを保存してください。
 
-グローバル設定では `source_format`、`project_root`、`copybook_paths`、`cobc_command`、`diagnostics`、`completion.enable`、`structure_scope`、`folding.foldtext` などを `opts` で変更できます。設定の詳細は[中国語の設定一覧](README.zh-CN.md#项目配置与默认选项)と `:help cobol-configuration` を参照してください。ソースには `enabled`、`overflow_col`、`smart_comments` も宣言されていますが、現状ではそれぞれの動作を制御していないため、設定スイッチとして使用しないでください。
+`:CobolBuild`、`:CobolRun`、`:CobolTest` は非同期で実行し、コンパイラの位置を Quickfix リストに登録します（`:cnext`、`:cprev`）。
 
-## コマンド一覧
+## コマンド
 
 | コマンド | 用途 |
 | --- | --- |
-| `:CobolGuideToggle` / `:CobolGuideEnable` / `:CobolGuideDisable` | ガイド、Winbar、診断のアタッチを切り替える（既存マッピングは残る） |
-| `:CobolToggleComment` | 検出したソース形式に合わせてコメントを切り替える。行範囲も指定可能 |
-| `:CobolGotoDef` / `:CobolGotoCopybook` / `:CobolPreview` | 定義へ移動、Copybook を開く、プレビューを表示 |
-| `:CobolCalcRecord` | レコードのレイアウトを概算 |
-| `:CobolStructure` | 対応付け済みブロックの終了キーワードを通知で表示（パーサーが必要） |
-| `:CobolFormatCase` | 範囲なしならバッファー全体、行範囲指定時はその範囲の予約語を大文字化 |
-| `:CobolLint` / `:CobolQuickfix` / `:CobolDiagnosticsToggle` | 構文チェック、Quickfix、自動診断の切り替え |
-| `:CobolBuild` / `:CobolRun` / `:CobolTest` | プロジェクトのビルド、実行、テスト |
+| `:CobolGuideToggle` | 視覚ヒントと診断のアタッチを切り替え |
+| `:CobolGuideEnable` / `:CobolGuideDisable` | ヒントと診断を再アタッチ／解除 |
+| `:CobolToggleComment` | ソース形式に応じてコメントを切り替え（範囲指定可） |
+| `:CobolGotoDef` | 定義へ移動 |
+| `:CobolGotoCopybook` | Copybook を開く |
+| `:CobolPreview` | 段落または Copybook をプレビュー |
+| `:CobolCalcRecord` | レコードレイアウトの見積もりを表示 |
+| `:CobolStructure` | カーソル位置で期待される `END-*` を通知 |
+| `:CobolFormatCase` | 認識した予約語を整形 |
+| `:CobolLint` | GnuCOBOL の構文チェックを実行 |
+| `:CobolQuickfix` | 診断の Quickfix リストを開く |
+| `:CobolDiagnosticsToggle` | 自動診断を切り替え |
+| `:CobolBuild` / `:CobolRun` / `:CobolTest` | ビルド／実行／テスト |
 
-## 困ったとき・開発
+## 設定項目
 
-- ガイドやキーがない場合は `:set filetype?` と `:verbose nmap gd` を確認します。
-- 構造表示がない場合は C コンパイラーと COBOL パーサーを確認します。アウトラインには Aerial などを別途インストールします。
-- 診断がない場合は `:echo executable('cobc')` と `cobc_command` を確認します。
-- Copybook が見つからない場合は `copybook_paths` とプロジェクトルートを確認します。
-- 記録長が違う場合は推定値を実際の ABI と取り違えず、対象コンパイラーで検証します。
+既定値は小規模なプロジェクト向けです。プロジェクト固有の設定例：
 
-リポジトリのルートで `./scripts/test.sh` を実行できます。Aerial がなければ Aerial 専用テストはスキップされます。ライセンスは [MIT](LICENSE) です。
+```lua
+{
+  "iamcheyan/cobol.nvim",
+  ft = { "cobol", "cbl", "cob" },
+  opts = {
+    project_root = vim.fn.expand("~/src/my-cobol-project"),
+    copybook_paths = { ".", "./cpy", "./copybooks", "./include" },
+    cobc_command = "cobc",
+    cobc_extra_args = {},
+    source_format = "auto",
+    structure_scope = { enable = true, char = "┆", show_branches = true },
+    folding = { enable = true, foldtext = "auto" },
+    diagnostics = { enable = true, debounce_ms = 600 },
+  },
+}
+```
+
+その他のオプションには `show_hierarchy_hint`、`show_pic_size`、`highlight_levels`、`show_colorcolumn`、`disable_indent_guide`、`diagnostics.on_save`/`on_change`、`diagnostics.warnings`/`dialect`、`completion.enable` があります。既定値は `:help cobol-configuration` を参照してください。ソース上で宣言されている `enabled`、`overflow_col`、`smart_comments` は現在それぞれの動作を制御していないため、スイッチとして使わないでください。
+
+## トラブルシューティング
+
+- **桁定規やマッピングが出ない**：`:set filetype?`、`:verbose nmap gd`、`keymaps` を確認します。
+- **スコープバッジ、パンくず、`%` が動かない**：Tree-sitter パーサーがありません。C コンパイラを導入するか `./scripts/build_parser.sh` で `cobol.so` をビルドしてください。
+- **アウトラインが出ない**：サイドバーは任意のアウトラインプラグイン（Aerial または Syms）が提供します。導入して設定してください。
+- **診断が出ない**：`:echo executable('cobc')` と `cobc_command` を確認します。
+- **Copybook が見つからない**：`project_root` を設定し、ディレクトリを `copybook_paths` に追加します。
+- **レイアウト長が想定と違う**：計算結果は見積もりとして扱い、コンパイラで確認してください。
+
+## 開発
+
+リポジトリのルートでテストを実行します：
+
+```bash
+./scripts/test.sh
+```
+
+Aerial 固有のテストは Aerial が無い場合スキップされます。コアのテストは Aerial を必要としません。
+
+## ライセンス
+
+MIT。[LICENSE](LICENSE) を参照してください。
