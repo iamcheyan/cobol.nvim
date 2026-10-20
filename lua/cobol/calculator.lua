@@ -375,6 +375,7 @@ function M.setup_keymaps(bufnr)
   end
 
   -- <leader>cr 或 :CobolCalcRecord：打开当前 Record 的字段内存偏移排布报表
+  -- 注意：<leader>cl 已被 diagnostics 的语法飞检占用，这里不要复用。
   map("n", "<leader>cr", function() M.show_record_layout(bufnr) end, "COBOL: Calculate Record Layout & Total Size")
 end
 

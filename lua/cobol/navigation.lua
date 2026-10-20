@@ -36,22 +36,96 @@ local function find_case_insensitive(directory, filename)
   end
 end
 
+-- COBOL 保留字集合：在保留字上不执行变量/段落定义查找，避免误报
+M.COBOL_RESERVED_WORDS = {
+  ["IDENTIFICATION"] = true, ["ENVIRONMENT"] = true, ["DATA"] = true,
+  ["PROCEDURE"] = true, ["DIVISION"] = true, ["SECTION"] = true,
+  ["PROGRAM-ID"] = true, ["WORKING-STORAGE"] = true, ["LOCAL-STORAGE"] = true,
+  ["LINKAGE"] = true, ["FILE"] = true, ["FD"] = true,
+  ["DISPLAY"] = true, ["STOP"] = true, ["RUN"] = true,
+  ["MOVE"] = true, ["TO"] = true, ["IF"] = true, ["THEN"] = true,
+  ["ELSE"] = true, ["END-IF"] = true, ["PERFORM"] = true,
+  ["END-PERFORM"] = true, ["UNTIL"] = true, ["VARYING"] = true,
+  ["FROM"] = true, ["BY"] = true, ["EVALUATE"] = true,
+  ["WHEN"] = true, ["END-EVALUATE"] = true, ["COMPUTE"] = true,
+  ["ADD"] = true, ["SUBTRACT"] = true, ["MULTIPLY"] = true,
+  ["DIVIDE"] = true, ["GOTO"] = true, ["GO"] = true,
+  ["PIC"] = true, ["PICTURE"] = true, ["VALUE"] = true,
+  ["OCCURS"] = true, ["INDEXED"] = true, ["REDEFINES"] = true,
+  ["COMP"] = true, ["COMP-1"] = true, ["COMP-2"] = true,
+  ["COMP-3"] = true, ["COMP-4"] = true, ["COMP-5"] = true,
+  ["BINARY"] = true, ["OPEN"] = true, ["CLOSE"] = true,
+  ["READ"] = true, ["WRITE"] = true, ["GOBACK"] = true,
+  ["EXIT"] = true, ["CONTINUE"] = true, ["NEXT"] = true,
+  ["SENTENCE"] = true, ["NOT"] = true, ["AND"] = true,
+  ["OR"] = true, ["TRUE"] = true, ["FALSE"] = true,
+  ["ZERO"] = true, ["ZEROS"] = true, ["ZEROES"] = true,
+  ["SPACE"] = true, ["SPACES"] = true, ["HIGH-VALUE"] = true,
+  ["HIGH-VALUES"] = true, ["LOW-VALUE"] = true, ["LOW-VALUES"] = true,
+  ["COPY"] = true, ["REPLACING"] = true,
+}
+
+local last_notification = {
+  text = "",
+  time = 0,
+}
+
+local function notify_once(msg, level)
+  local now = (vim.uv or vim.loop).now()
+  if last_notification.text == msg and (now - last_notification.time) < 2000 then
+    return
+  end
+  last_notification.text = msg
+  last_notification.time = now
+  vim.notify(msg, level)
+end
+
+local function is_valid_identifier_char(ch)
+  return ch ~= nil and ch:match("[%w%-_]") ~= nil
+end
+
 -- 提取光标所在 COBOL 标识符（连字符 - 为合法符号）
 function M.get_word_under_cursor()
   local line = vim.api.nvim_get_current_line()
+  if not line or line == "" then
+    return nil
+  end
+
   local col = vim.api.nvim_win_get_cursor(0)[2] + 1 -- 1-indexed
+  if col > #line then
+    return nil
+  end
+
+  local curr_char = line:sub(col, col)
+  -- 如果光标当前字符不是合法的标识符字符（例如在标点符号、空格、引号、括号上），
+  -- 直接返回 nil，绝不能回退抓取标点符号（如 ).）！
+  if not is_valid_identifier_char(curr_char) then
+    return nil
+  end
+
   local left = col
-  while left > 1 and line:sub(left - 1, left - 1):match("[%w%-]") do
+  while left > 1 and is_valid_identifier_char(line:sub(left - 1, left - 1)) do
     left = left - 1
   end
+
   local right = col
-  while right <= #line and line:sub(right, right):match("[%w%-]") do
+  while right <= #line and is_valid_identifier_char(line:sub(right, right)) do
     right = right + 1
   end
-  if left < right then
-    return line:sub(left, right - 1)
+
+  local raw_word = line:sub(left, right - 1)
+  -- 去除首尾可能粘连的连字符或下划线
+  local word = raw_word:match("^[%-_]*(.-)[%-_]*$")
+  if not word or word == "" then
+    return nil
   end
-  return vim.fn.expand("<cword>")
+
+  -- 必须包含至少一个字母或数字
+  if not word:match("%w") then
+    return nil
+  end
+
+  return word
 end
 
 -- 提取当前行中的 COPY 目标文件名
@@ -428,6 +502,9 @@ function M.goto_definition()
   if not word or word == "" then
     return
   end
+  if M.COBOL_RESERVED_WORDS[word:upper()] then
+    return
+  end
 
   -- 如果当前行包含 COPY，且光标在 Copybook 名称处，触发文件跳转
   local copy_name = M.get_copybook_name_on_line()
@@ -439,7 +516,7 @@ function M.goto_definition()
   local bufnr = vim.api.nvim_get_current_buf()
   local definitions = M.find_definitions(word, bufnr)
   if #definitions == 0 then
-    vim.notify("COBOL: Definition not found for '" .. word .. "'", vim.log.levels.WARN)
+    notify_once("COBOL: Definition not found for '" .. word .. "'", vim.log.levels.WARN)
     return
   end
   local function jump(def)
@@ -528,11 +605,14 @@ function M.hover_preview()
   if not word or word == "" then
     return
   end
+  if M.COBOL_RESERVED_WORDS[word:upper()] then
+    return
+  end
 
   local bufnr = vim.api.nvim_get_current_buf()
   local definitions = M.find_definitions(word, bufnr)
   if #definitions == 0 then
-    vim.notify("COBOL: No definition found for '" .. word .. "'", vim.log.levels.INFO)
+    notify_once("COBOL: No definition found for '" .. word .. "'", vim.log.levels.INFO)
     return
   end
   local function preview(def)
