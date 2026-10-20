@@ -8,7 +8,8 @@ local default_config = {
   columns = { 7, 8, 12, 73 },  -- 标尺列：7 (Ind), 8 (Area A), 12 (Area B), 73 (Past Area B)
   show_lines = true,           -- 使用纯字符细线标尺 (│)，零背景色
   char = "│",                  -- 细线字符 (U+2502)
-  show_winbar = true,          -- 顶部打孔卡刻度
+  show_winbar = true,          -- 顶部面包屑与结构提示
+  caps_mode = false,            -- 是否开启 ISPF Smart CAPS 模式
   show_breadcrumbs = true,     -- 顶部 Winbar 实时显示 Division > Section > Paragraph 面包屑
   show_waiting_closures = true,-- Winbar 右端显示待闭合栈 (END-IF · END-EVALUATE …)
   structure_scope = {
@@ -515,6 +516,7 @@ function M.get_winbar()
       hl_group = breadcrumb_highlight(parts)
     end
   end
+
   if #crumb_parts == 0 then
     return ""
   end
@@ -848,6 +850,12 @@ function M.attach(bufnr)
     vim.wo.winbar = "%!v:lua.require'cobol'.get_winbar()"
   end
 
+
+  -- 激活 ISPF Smart CAPS 模式
+  if M.config.caps_mode and M.state.enabled then
+    pcall(function() require("cobol.caps").enable() end)
+  end
+
   -- 禁用当前 COBOL 缓冲区的通用缩进线（如 indent-blankline）
   if M.config.disable_indent_guide then
     local ok_ibl, ibl = pcall(require, "ibl")
@@ -910,6 +918,10 @@ function M.attach(bufnr)
     map("x", "gc", toggle_visual_comment, "COBOL: Toggle Col 7 Comment on Selection")
     map("x", "<leader>c*", toggle_visual_comment, "COBOL: Toggle Col 7 Comment on Selection")
 
+    -- IBM z/OS ISPF Mainframe Keymaps
+    map({ "n", "v" }, "<leader>ch", "<cmd>CobolHex<CR>", "COBOL: Inspect Hex / EBCDIC / COMP-3")
+    map("n", "<leader>cc", "<cmd>CobolCapsToggle<CR>", "COBOL: Toggle Smart CAPS")
+
     -- Buffer mappings also work when the optional completion plugin is absent.
     if M.config.smart_tab then
       vim.keymap.set("i", "<Tab>", function()
@@ -968,6 +980,7 @@ function M.detach(bufnr)
   end
   vim.api.nvim_buf_clear_namespace(bufnr, M.ns_hint, 0, -1)
   pcall(vim.api.nvim_buf_clear_namespace, bufnr, vim.api.nvim_create_namespace("cobol_nvim_calc"), 0, -1)
+  pcall(vim.api.nvim_buf_clear_namespace, bufnr, vim.api.nvim_create_namespace("cobol_nvim_data_markers"), 0, -1)
 
   -- 清除诊断与任务
   local ok_diag, diag = pcall(require, "cobol.diagnostics")
@@ -1152,6 +1165,58 @@ function M.setup(opts)
     end
   end, { desc = "COBOL: Toggle GnuCOBOL diagnostics linter" })
 
+  -- IBM z/OS ISPF Mainframe Enhancements
+
+  vim.api.nvim_create_user_command("CobolHex", function(args)
+    local hex = require("cobol.hex")
+    local text = ""
+    if args.args and args.args ~= "" then
+      text = args.args
+    elseif args.range == 2 then
+      local start_pos = vim.fn.getpos("'<")
+      local end_pos = vim.fn.getpos("'>")
+      local lines = vim.api.nvim_buf_get_text(0, start_pos[2] - 1, start_pos[3] - 1, end_pos[2] - 1, end_pos[3], {})
+      text = table.concat(lines, "\n")
+    else
+      local cword = vim.fn.expand("<cword>")
+      if cword and cword ~= "" then
+        text = cword
+      else
+        text = vim.api.nvim_get_current_line()
+      end
+    end
+    hex.inspect_interactive(text)
+  end, { range = true, nargs = "?", desc = "COBOL: Inspect EBCDIC/ASCII Nibbles and COMP-3 Decimal" })
+
+  vim.api.nvim_create_user_command("CobolRenum", function(args)
+    local start_num = 100
+    local step_num = 100
+    local label = nil
+    local tokens = vim.split(args.args or "", "%s+", { trimempty = true })
+    if tokens[1] then start_num = tonumber(tokens[1]) or start_num end
+    if tokens[2] then step_num = tonumber(tokens[2]) or step_num end
+    if tokens[3] then label = tokens[3] end
+
+    local start_l = (args.range == 2) and args.line1 or 1
+    local end_l = (args.range == 2) and args.line2 or vim.api.nvim_buf_line_count(0)
+    require("cobol.sequence").renum(0, start_l, end_l, { start = start_num, step = step_num, label = label })
+  end, { range = true, nargs = "*", desc = "COBOL: Renumber sequence columns 1-6 [start] [step] [label]" })
+
+  vim.api.nvim_create_user_command("CobolUnnum", function(args)
+    local clear_ident = true
+    if args.args == "seq" then
+      clear_ident = false
+    end
+    local start_l = (args.range == 2) and args.line1 or 1
+    local end_l = (args.range == 2) and args.line2 or vim.api.nvim_buf_line_count(0)
+    require("cobol.sequence").unnum(0, start_l, end_l, { clear_ident = clear_ident })
+  end, { range = true, nargs = "?", desc = "COBOL: Clear sequence numbers in columns 1-6 [all|seq]" })
+
+  vim.api.nvim_create_user_command("CobolCapsToggle", function()
+    require("cobol.caps").toggle()
+  end, { desc = "COBOL: Toggle ISPF Smart CAPS input mode" })
+
+
   require("cobol.commands").setup()
 
   -- Folding is window-local, so re-apply it for COBOL buffers that are already
@@ -1204,6 +1269,9 @@ function M.setup(opts)
         return
       end
       if is_cobol_buf(ev.buf) then
+        if M.config.show_winbar and M.state.enabled then
+          vim.wo[win_id].winbar = "%!v:lua.require'cobol'.get_winbar()"
+        end
         setup_matches(win_id)
         M.update_hierarchy_hint(ev.buf, win_id)
         if M.config.show_pic_size then
