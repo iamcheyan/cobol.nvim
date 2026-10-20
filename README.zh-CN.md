@@ -12,7 +12,8 @@
 
 | 类别 | 提供什么 | 截图 |
 | --- | --- | --- |
-| 固定格式布局 | 7、8、12、73 列标尺，列跳转，第 72 列越界高亮 | 上方 |
+| 固定格式布局 | 7、8、12、73 列细线标尺，列跳转，第 72 列越界高亮 | 上方 |
+| IBM z/OS 大型机实用工具 | 行序号管理（`:CobolRenum`/`:CobolUnnum`）、EBCDIC/Nibble/COMP-3 检查窗（`:CobolHex`）、Smart CAPS 智能大写输入（`:CobolCapsToggle`） | [文档](docs/MAINFRAME_ISPF_GUIDE.md) |
 | 结构大纲 | 大纲侧栏中的 Division / Section / Paragraph / 控制结构 / 数据层级树 | [见下](#结构大纲与作用域提示) |
 | 定义与 Copybook 导航 | `gd`、`gf`、`K` 预览、跳转列表返回 | [见下](#定义与-copybook-导航) |
 | 记录长度计算 | `:CobolCalcRecord` 输出 DISPLAY / COMP / COMP-3 / OCCURS / REDEFINES 布局表 | [见下](#pic-与记录长度计算) |

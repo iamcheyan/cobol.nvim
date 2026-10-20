@@ -15,6 +15,7 @@ The theme and layout come from the user's own Neovim configuration.
 | Area | What you get | Screenshot |
 | --- | --- | --- |
 | Fixed-format layout | Ruler at columns 7, 8, 12, and 73; column jumps; column-72 overflow highlighting | above |
+| IBM z/OS Mainframe Tools | Sequence renumbering (`:CobolRenum`/`:CobolUnnum`), EBCDIC/Nibble/COMP-3 inspector (`:CobolHex`), Smart CAPS (`:CobolCapsToggle`) | [Guide](docs/MAINFRAME_ISPF_GUIDE.md) |
 | Structure outline | Multi-level Division / Section / Paragraph / control-flow / data tree in an outline sidebar | [below](#structure-outline-and-scope-hints) |
 | Definition and Copybook navigation | `gd`, `gf`, `K` preview, jump-list return | [below](#definition-and-copybook-navigation) |
 | Record size calculation | `:CobolCalcRecord` layout table for DISPLAY / COMP / COMP-3 / OCCURS / REDEFINES | [below](#pic-and-record-size-calculation) |
