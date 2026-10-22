@@ -4,11 +4,11 @@ local function winbar_text(text)
 end
 
 local function clip_parts(parts, budget)
-  local full = table.concat(parts, " > ")
+  local full = table.concat(parts, "  ")
   if vim.api.nvim_strwidth(full) <= budget then
     return full
   end
-  budget = budget - 4 -- room for the leading "… > "
+  budget = budget - 4 -- room for the leading "…  "
   local kept = {}
   local width = 0
   for i = #parts, 1, -1 do
@@ -20,7 +20,7 @@ local function clip_parts(parts, budget)
     table.insert(kept, 1, part)
     width = width + cost
   end
-  return "… > " .. table.concat(kept, " > ")
+  return "…  " .. table.concat(kept, "  ")
 end
 
 local function breadcrumb_highlight(parts)
@@ -64,14 +64,8 @@ end
 function M.render(bufnr, win_id)
   local cobol = require("cobol")
   if not cobol.state.enabled then return "" end
-  local ok, wininfo = pcall(vim.fn.getwininfo, win_id)
-  local textoff = 0
-  if ok and wininfo and wininfo[1] then
-    textoff = wininfo[1].textoff or 0
-  end
-
   local width = vim.api.nvim_win_get_width(win_id)
-  local avail = math.max(20, width - textoff - 2)
+  local avail = math.max(20, width - 2)
 
   local crumb_parts = {}
   local hl_group = "CobolBreadcrumbProc"
@@ -84,19 +78,27 @@ function M.render(bufnr, win_id)
     end
   end
 
-  if #crumb_parts == 0 then
-    return ""
+  if not cobol.config.show_breadcrumbs then return "" end
+  if #crumb_parts == 0 then crumb_parts = { "(root)" } end
+  for index, part in ipairs(crumb_parts) do
+    local icon = index == 1 and "󰌗" or index == 2 and "󰏗" or "󰊕"
+    if part:match("^IF ") or part:match("^EVALUATE ") or part:match("^PERFORM ") then icon = "󰅩" end
+    crumb_parts[index] = icon .. " " .. part
   end
 
   -- The breadcrumb is the primary signal: give it the space it needs and keep
   -- waiting closures only in what is left over, dropping them when there is no
   -- room instead of squeezing the chain down to its last part.
-  local crumb_need = vim.api.nvim_strwidth(table.concat(crumb_parts, " > ")) + 4
+  local crumb_need = vim.api.nvim_strwidth(table.concat(crumb_parts, "  ")) + 4
   local waiting_budget = avail - crumb_need - 6
   local waiting_text = ""
-  if waiting_budget >= 16 then
+  if waiting_budget >= 10 then
     local waiting = waiting_closure_parts(win_id, bufnr, waiting_budget)
     local candidate = waiting[1] and table.concat(waiting, "  ") or ""
+    if vim.api.nvim_strwidth(candidate) + 4 > waiting_budget then
+      -- Avoid repeating the active condition when the compact END-* names fit.
+      candidate = candidate:gsub("%s+%b()", "")
+    end
     if candidate ~= "" and vim.api.nvim_strwidth(candidate) + 4 <= waiting_budget then
       waiting_text = candidate
     end
@@ -105,9 +107,7 @@ function M.render(bufnr, win_id)
     - (waiting_text ~= "" and (vim.api.nvim_strwidth(waiting_text) + 4) or 0)
     - 4
 
-  local pad = string.rep(" ", textoff)
-  local winbar = pad
-    .. "%#"
+  local winbar = "%#"
     .. hl_group
     .. "#[ "
     .. winbar_text(clip_parts(crumb_parts, math.max(12, crumb_budget)))
@@ -183,7 +183,7 @@ local function symbols(items, buf, win)
   local result = {}
   for index, item in ipairs(items) do
     result[#result+1] = require('dropbar.bar').dropbar_symbol_t:new(setmetatable({
-      name=item.name, icon='', buf=buf, win=win, range=item.range,
+      name=item.name, icon=(item.level == 1 and '󰌗 ' or item.level == 2 and '󰏗 ' or '󰊕 '), buf=buf, win=win, range=item.range,
     }, {__index=function(_, key)
       if key == 'children' then return symbols(item.children, buf, win) end
       if key == 'siblings' then return symbols(items, buf, win) end
