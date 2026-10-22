@@ -334,3 +334,10 @@ The Aerial-specific test is skipped when Aerial is not installed; the core tests
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Official dropbar integration
+
+`require('cobol.dropbar')` is an optional source for the official
+[Bekaboo/dropbar.nvim](https://github.com/Bekaboo/dropbar.nvim). Add it to
+`bar.sources` to use native dropbar hierarchy menus without contextline or a fork.
+Set `show_winbar = false` in cobol.nvim so dropbar owns the winbar. The source preserves the bracketed AST chain and right-aligned waiting closures.
