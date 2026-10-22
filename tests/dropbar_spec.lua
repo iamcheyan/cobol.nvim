@@ -26,4 +26,13 @@ if require('cobol.ast').parser(buf) then
   assert(text:find('PROCEDURE DIVISION',1,true), text)
   assert(text:find('END-IF',1,true), 'waiting closer must fit with the icon chain: '..text)
 end
+vim.opt.runtimepath:append(vim.fn.stdpath('data')..'/lazy/dropbar.nvim')
+local ok = pcall(require, 'dropbar')
+if ok then
+  local symbols=source.get_symbols(buf,win,nil,{left_width=12})
+  assert(#symbols==1)
+  local plain=symbols[1]:cat(true)
+  assert(vim.fn.strdisplaywidth(plain)<vim.api.nvim_win_get_width(win),
+    'symbol width must measure text instead of expanding the right-alignment spacer')
+end
 print('dropbar_spec: OK')

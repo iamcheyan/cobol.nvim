@@ -61,11 +61,11 @@ local function waiting_closure_parts(win_id, bufnr, budget)
   return kept
 end
 
-function M.render(bufnr, win_id)
+function M.render(bufnr, win_id, layout)
   local cobol = require("cobol")
   if not cobol.state.enabled then return "" end
   local width = vim.api.nvim_win_get_width(win_id)
-  local avail = math.max(20, width - 2)
+  local avail = math.max(12, width - ((layout or {}).left_width or 0) - 2)
 
   local crumb_parts = {}
   local hl_group = "CobolBreadcrumbProc"
@@ -193,8 +193,8 @@ local function symbols(items, buf, win)
   return result
 end
 
-function M.get_symbols(buf, win, _)
-  local layout = M.render(buf, win)
+function M.get_symbols(buf, win, _, opts)
+  local layout = M.render(buf, win, opts)
   if layout == '' then return {} end
   local symbol = require('dropbar.bar').dropbar_symbol_t:new(setmetatable({
     name='', icon='', buf=buf, win=win,
@@ -205,7 +205,7 @@ function M.get_symbols(buf, win, _)
   -- callback registry, native menu and all other symbol types unchanged.
   symbol.cat = function(self, plain)
     if plain then
-      return vim.api.nvim_eval_statusline(layout, {winid=win, use_winbar=true}).str
+      return vim.api.nvim_eval_statusline(layout:gsub("%%=", " "), {winid=win, use_winbar=true}).str
     end
     if not self.bar then return layout end
     return require('dropbar.utils.bar').make_clickable(layout,
