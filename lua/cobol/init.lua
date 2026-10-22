@@ -1088,9 +1088,9 @@ end
 
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.config, opts or {})
-  local ok_contextline, contextline = pcall(require, "contextline")
-  if ok_contextline then
-    contextline.register("cobol", {
+  local ok_dropbar, context = pcall(require, "dropbar.context")
+  if ok_dropbar then
+    context.register("cobol", {
       filetypes = { "cobol", "cbl", "cob" },
       get_info = require("cobol.context").get_info,
     })
