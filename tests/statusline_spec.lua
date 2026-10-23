@@ -28,4 +28,35 @@ assert(highlighted:find("%%#CobolStatusRecord#", 1, false), "status should color
 vim.bo[bufnr].filetype = "lua"
 assert(statusline.get({ bufnr = bufnr, winid = 0 }) == "", "status should be empty outside COBOL")
 
+-- Highlight groups must follow the active theme rather than fixed colors.
+vim.api.nvim_set_hl(0, "StatusLine", { fg = 0x123456, bg = 0xabcdef })
+vim.api.nvim_set_hl(0, "Constant", { fg = 0x111111 })
+vim.api.nvim_set_hl(0, "Type", { fg = 0x222222 })
+vim.api.nvim_set_hl(0, "Function", { fg = 0x333333 })
+vim.api.nvim_set_hl(0, "Special", { fg = 0x444444 })
+vim.api.nvim_set_hl(0, "Number", { fg = 0x555555 })
+vim.api.nvim_set_hl(0, "String", { fg = 0x666666 })
+vim.api.nvim_set_hl(0, "ErrorMsg", { fg = 0x777777, bg = 0x888888 })
+require("cobol").setup_highlights()
+local function fg(name)
+  return vim.api.nvim_get_hl(0, { name = name, link = false }).fg
+end
+for _, name in ipairs({ "CobolStatusFormat", "CobolStatusArea", "CobolStatusField",
+  "CobolStatusPic", "CobolStatusSize", "CobolStatusRecord" }) do
+  assert(fg(name) == 0x123456, name .. " must follow StatusLine")
+end
+for name, expected in pairs({
+  CobolLevel88 = 0x111111,
+  CobolConditionName = 0x222222,
+  CobolLevel01 = 0x333333,
+  CobolHierarchyHint = 0x444444,
+  CobolSizeHint = 0x555555,
+  CobolRecordSizeHint = 0x666666,
+  CobolColumnOverflow = 0x777777,
+}) do
+  assert(fg(name) == expected, name .. " must follow its theme group")
+end
+assert(vim.api.nvim_get_hl(0, { name = "CobolColumnOverflow", link = false }).bg == 0x888888,
+  "overflow background must follow ErrorMsg")
+
 print("statusline_spec: OK")

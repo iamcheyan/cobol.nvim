@@ -153,11 +153,32 @@ function M.setup_highlights()
 
   set("cobolNvimComment", { link = "Comment" })
 
-  -- 纯细线标尺配色：无背景色，使用清爽淡钢蓝，与缩进线风格融合
-  set("CobolRulerLine", { fg = "#3b638c", bg = "NONE" })
-  set("CobolRulerLineInd", { fg = "#4c78a8", bg = "NONE" })
-  -- At the ruler/cursor crossing, use the active line-number accent so the
-  -- vertical cursor guide remains visible over the virtual ruler character.
+  local function hl(name)
+    return vim.api.nvim_get_hl(0, { name = name, link = false })
+  end
+  local normal = hl("Normal")
+  local statusline = hl("StatusLine")
+  local cursorline = hl("CursorLine")
+  -- Copy only the foreground from a semantic group. These labels sit on the
+  -- statusline, WinBar, or CursorLine surface, so the source group's own
+  -- background must not leak through.
+  local function themed(group, source, opts)
+    local src = hl(source)
+    opts = opts or {}
+    opts.fg = src.fg or normal.fg
+    opts.ctermfg = src.ctermfg or normal.ctermfg
+    vim.api.nvim_set_hl(0, group, opts)
+  end
+  local function status(group, opts)
+    opts = opts or {}
+    opts.fg = statusline.fg or normal.fg
+    opts.ctermfg = statusline.ctermfg or normal.ctermfg
+    vim.api.nvim_set_hl(0, group, opts)
+  end
+
+  -- Ruler lines: keep them subtle, but derive both colors from the theme.
+  themed("CobolRulerLine", "Comment", { bg = "NONE" })
+  themed("CobolRulerLineInd", "NonText", { bg = "NONE" })
 
   -- The ruler occupies the theme-provided WinBar surface. Do not paint
   -- per-column backgrounds: those hard-coded blocks looked like corruption
@@ -170,36 +191,41 @@ function M.setup_highlights()
     set(group, { link = "WinBar" })
   end
 
-  -- Statusline context components, using the same semantic colors as the
-  -- ruler, breadcrumbs, and data-layout virtual text above.
-  set("CobolStatusFormat", { fg = "#61afef", bold = true })
-  set("CobolStatusArea", { fg = "#98c379", bold = true })
-  set("CobolStatusField", { fg = "#e5c07b", bold = true })
-  set("CobolStatusPic", { fg = "#c678dd" })
-  set("CobolStatusSize", { fg = "#56b6c2", bold = true })
-  set("CobolStatusRecord", { fg = "#98c379", bold = true })
+  -- Statusline labels use the StatusLine foreground, which is guaranteed to
+  -- contrast with the active statusline background.
+  status("CobolStatusFormat", { bold = true })
+  status("CobolStatusArea", { bold = true })
+  status("CobolStatusField", {})
+  status("CobolStatusPic", { italic = true })
+  status("CobolStatusSize", { bold = true })
+  status("CobolStatusRecord", { bold = true })
 
-  -- DATA DIVISION 层级与 88 级高亮
-  set("CobolLevel88", { fg = "#c678dd", bold = true })        -- 88 标志号（鲜明紫）
-  set("CobolConditionName", { fg = "#e5c07b", bold = true })  -- 88 条件名（暖金黄）
-  set("CobolLevel01", { fg = "#61afef", bold = true })        -- 01 顶级记录号（亮蓝）
-  set("CobolHierarchyHint", { fg = "#8be9fd", italic = true }) -- 行尾宿主回溯提示：亮青色，蓝色光标行上仍清晰
-  set("CobolSizeHint", { fg = "#ffe08a", bold = true })        -- 字段字节数提示：暖黄色，强调计算结果
-  set("CobolRecordSizeHint", { fg = "#98c379", bold = true })  -- 01 Record 内存总计提示
+  -- Inline DATA DIVISION / hint labels follow the active syntax palette.
+  themed("CobolLevel88", "Constant", { bold = true })
+  themed("CobolConditionName", "Type", { bold = true })
+  themed("CobolLevel01", "Function", { bold = true })
+  themed("CobolHierarchyHint", "Special", { italic = true })
+  themed("CobolSizeHint", "Number", { bold = true })
+  themed("CobolRecordSizeHint", "String", { bold = true })
 
-  -- 72 列越界代码高亮（醒目告警）
-  set("CobolColumnOverflow", {
-    fg = "#ff7b72",
-    bg = "#382024",
+  -- 72-column overflow: use the theme's error surface instead of fixed red.
+  local error_msg = hl("ErrorMsg")
+  vim.api.nvim_set_hl(0, "CobolColumnOverflow", {
+    fg = error_msg.fg or normal.fg,
+    bg = error_msg.bg,
+    ctermfg = error_msg.ctermfg or normal.ctermfg,
+    ctermbg = error_msg.ctermbg,
     undercurl = true,
-    sp = "#ff7b72",
+    sp = error_msg.fg or normal.fg,
     bold = true,
   })
 
-  -- 备用兼容 ColorColumn
-  set("CobolRulerCol", {
-    bg = "#232832",
-  })
+  -- Fallback ColorColumn follows the theme's ColorColumn or CursorLine.
+  local colorcolumn = hl("ColorColumn")
+  local ruler_col_bg = colorcolumn.bg or cursorline.bg
+  if ruler_col_bg then
+    vim.api.nvim_set_hl(0, "CobolRulerCol", { bg = ruler_col_bg })
+  end
 end
 
 -- nvim-ufo overrides 'foldtext' on the windows it manages, so setting ours
