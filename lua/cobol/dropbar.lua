@@ -11,6 +11,37 @@ local function parts_width(parts)
   return vim.api.nvim_strwidth(join_parts(parts))
 end
 
+local function truncate_to_width(text, max_width)
+  if vim.api.nvim_strwidth(text) <= max_width then
+    return text
+  end
+  local limit = math.max(1, max_width - 1)
+  local chars = vim.fn.strchars(text)
+  while chars > 0 and vim.api.nvim_strwidth(vim.fn.strcharpart(text, 0, chars)) > limit do
+    chars = chars - 1
+  end
+  return vim.fn.strcharpart(text, 0, chars) .. "…"
+end
+
+local function fit_parts(parts, budget)
+  if parts_width(parts) <= budget then
+    return join_parts(parts)
+  end
+  -- A COBOL statement label can span the whole line. Truncate from the
+  -- innermost part outwards so dropbar never has to collapse the whole
+  -- breadcrumb into its extends glyph.
+  for i = #parts, 1, -1 do
+    local room = budget - (parts_width(parts) - vim.api.nvim_strwidth(parts[i]))
+    if room >= 2 then
+      parts[i] = truncate_to_width(parts[i], room)
+      if parts_width(parts) <= budget then
+        break
+      end
+    end
+  end
+  return join_parts(parts)
+end
+
 local function clip_parts(parts, budget)
   if parts_width(parts) <= budget then
     return join_parts(parts)
@@ -63,7 +94,7 @@ local function clip_parts(parts, budget)
     -- context, the inner context is more useful than the division alone.
     local has_inner = #parts > division
     if parts_width(out) <= budget and (not has_inner or #tail > 0) then
-      return join_parts(out)
+      return fit_parts(out, budget)
     end
   end
 
@@ -79,7 +110,8 @@ local function clip_parts(parts, budget)
     table.insert(kept, 1, part)
     width = width + cost
   end
-  return "…  " .. join_parts(kept)
+  table.insert(kept, 1, "…")
+  return fit_parts(kept, budget + 4)
 end
 
 local function breadcrumb_highlight(parts)

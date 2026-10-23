@@ -30,6 +30,27 @@ if require('cobol.ast').parser(buf) then
     {winid=win,use_winbar=true}).str
   assert(clipped:find('PROCEDURE DIVISION',1,true), 'active division must survive clipping: '..clipped)
   assert(clipped:find('IF A > 1',1,true), 'current condition must survive clipping: '..clipped)
+  local long_buf=vim.api.nvim_create_buf(true,false)
+  vim.api.nvim_buf_set_lines(long_buf,0,-1,false,{
+    '       IDENTIFICATION DIVISION.',
+    '       PROGRAM-ID. LONG.',
+    '       PROCEDURE DIVISION.',
+    '       STRING-PARA.',
+    '           STRING "SUMMARY,COUNT=" DELIMITED BY SIZE',
+    '               WS-OUT-COUNT DELIMITED BY SIZE',
+    '               WS-OUT-SUCCESS DELIMITED BY SIZE',
+    '               INTO WS-REPORT-LINE',
+    '           END-STRING.',
+  })
+  vim.bo[long_buf].filetype='cobol'
+  vim.api.nvim_win_set_buf(win,long_buf)
+  vim.api.nvim_win_set_cursor(win,{5,11})
+  local long=vim.api.nvim_eval_statusline(
+    source.render(long_buf,win,{left_width=math.max(0,vim.api.nvim_win_get_width(win)-40)}),
+    {winid=win,use_winbar=true}).str
+  assert(vim.fn.strdisplaywidth(long)<=vim.api.nvim_win_get_width(win),
+    'long statement label must be clipped to the window: '..long)
+  assert(long:find('STRING',1,true), 'long statement label must stay visible: '..long)
 end
 vim.opt.runtimepath:append(vim.fn.stdpath('data')..'/lazy/dropbar.nvim')
 local ok = pcall(require, 'dropbar')
