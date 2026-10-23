@@ -25,6 +25,11 @@ if require('cobol.ast').parser(buf) then
   assert(text:find('󰌗',1,true), 'division icon missing')
   assert(text:find('PROCEDURE DIVISION',1,true), text)
   assert(text:find('END-IF',1,true), 'waiting closer must fit with the icon chain: '..text)
+  local clipped=vim.api.nvim_eval_statusline(
+    source.render(buf,win,{left_width=math.max(0,vim.api.nvim_win_get_width(win)-40)}),
+    {winid=win,use_winbar=true}).str
+  assert(clipped:find('PROCEDURE DIVISION',1,true), 'active division must survive clipping: '..clipped)
+  assert(clipped:find('IF A > 1',1,true), 'current condition must survive clipping: '..clipped)
 end
 vim.opt.runtimepath:append(vim.fn.stdpath('data')..'/lazy/dropbar.nvim')
 local ok = pcall(require, 'dropbar')

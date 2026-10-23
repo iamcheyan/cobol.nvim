@@ -3,11 +3,70 @@ local function winbar_text(text)
   return (text:gsub("%%", "%%%%"))
 end
 
+local function join_parts(parts)
+  return table.concat(parts, "  ")
+end
+
+local function parts_width(parts)
+  return vim.api.nvim_strwidth(join_parts(parts))
+end
+
 local function clip_parts(parts, budget)
-  local full = table.concat(parts, "  ")
-  if vim.api.nvim_strwidth(full) <= budget then
-    return full
+  if parts_width(parts) <= budget then
+    return join_parts(parts)
   end
+
+  -- The division the cursor is in is the useful anchor.  Outer divisions are
+  -- the first thing to discard when the path breadcrumb leaves little room;
+  -- keep the active division and fill the remaining cells from the innermost
+  -- paragraph/condition outwards.
+  local division
+  for i = #parts, 1, -1 do
+    if parts[i]:find(" DIVISION", 1, true) then
+      division = i
+      break
+    end
+  end
+  if division then
+    local tail = {}
+    local used = (division > 1 and 4 or 0) -- leading "…  "
+      + vim.api.nvim_strwidth(parts[division])
+    for i = #parts, division + 1, -1 do
+      local cost = vim.api.nvim_strwidth(parts[i]) + 3 -- separator
+      if used + cost > budget then
+        break
+      end
+      table.insert(tail, 1, parts[i])
+      used = used + cost
+    end
+    local omitted_tail = #tail < #parts - division
+    local function compose(with_inner_ellipsis)
+      local out = {}
+      if division > 1 then out[#out + 1] = "…" end
+      out[#out + 1] = parts[division]
+      if with_inner_ellipsis and omitted_tail and #tail > 0 then
+        out[#out + 1] = "…"
+      end
+      for _, part in ipairs(tail) do out[#out + 1] = part end
+      return out
+    end
+    local out = compose(true)
+    if parts_width(out) > budget and omitted_tail and #tail > 0 then
+      -- A dangling ellipsis is less valuable than the symbols themselves.
+      out = compose(false)
+    end
+    while #tail > 0 and parts_width(out) > budget do
+      table.remove(tail, 1)
+      out = compose(false)
+    end
+    -- When the window is too narrow for the division plus the current inner
+    -- context, the inner context is more useful than the division alone.
+    local has_inner = #parts > division
+    if parts_width(out) <= budget and (not has_inner or #tail > 0) then
+      return join_parts(out)
+    end
+  end
+
   budget = budget - 4 -- room for the leading "…  "
   local kept = {}
   local width = 0
@@ -20,7 +79,7 @@ local function clip_parts(parts, budget)
     table.insert(kept, 1, part)
     width = width + cost
   end
-  return "…  " .. table.concat(kept, "  ")
+  return "…  " .. join_parts(kept)
 end
 
 local function breadcrumb_highlight(parts)
