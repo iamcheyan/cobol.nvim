@@ -1,7 +1,6 @@
 -- Tree-sitter-backed structural navigation for COBOL.
 -- AST features deliberately have no regex parser fallback.
 local M = {}
-local palette = { "#61afef", "#e5c07b", "#e06c75", "#98c379", "#c678dd", "#56b6c2" }
 local structure_palette = {
   { fg = "#ffffff", bg = "#2563eb", line = "#60a5fa" }, -- Level 1: Vibrant Royal Blue
   { fg = "#ffffff", bg = "#d97706", line = "#fbbf24" }, -- Level 2: Amber/Gold
