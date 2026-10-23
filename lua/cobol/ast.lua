@@ -587,7 +587,15 @@ function M.setup_highlights()
     vim.api.nvim_set_hl(0, "CobolStructure" .. i, { fg = entry.fg, bg = entry.bg, bold = true, default = true })
     vim.api.nvim_set_hl(0, "CobolStructureLine" .. i, { fg = entry.line, bold = true, default = true })
   end
-  vim.api.nvim_set_hl(0, "CobolWaitingClosure", { fg = "#e5c07b", default = true })
+  -- The waiting-closure hint lives on the WinBar. Follow that surface instead
+  -- of a fixed yellow, which disappears on light WinBar themes.
+  local winbar = vim.api.nvim_get_hl(0, { name = "WinBar", link = false })
+  local normal = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
+  vim.api.nvim_set_hl(0, "CobolWaitingClosure", {
+    fg = winbar.fg or normal.fg,
+    ctermfg = winbar.ctermfg or normal.ctermfg,
+    bold = true,
+  })
 end
 
 function M.breadcrumb(bufnr, winid)

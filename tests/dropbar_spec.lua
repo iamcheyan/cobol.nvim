@@ -61,4 +61,14 @@ if ok then
   assert(vim.fn.strdisplaywidth(plain)<vim.api.nvim_win_get_width(win),
     'symbol width must measure text instead of expanding the right-alignment spacer')
 end
+-- Winbar components must follow the active theme, including dark WinBar
+-- surfaces where the old hard-coded colors disappeared.
+vim.api.nvim_set_hl(0,'WinBar',{fg=0xf0f0f0,bg=0x101010})
+require('cobol.ast').setup_highlights()
+require('cobol').setup_highlights()
+for _,name in ipairs({'CobolWaitingClosure','CobolBreadcrumbProc','CobolBreadcrumbData',
+  'CobolBreadcrumbEnv','CobolBreadcrumbId'}) do
+  local fg=vim.api.nvim_get_hl(0,{name=name,link=false}).fg
+  assert(fg==0xf0f0f0, name .. ' must follow the WinBar foreground, got '..vim.inspect(fg))
+end
 print('dropbar_spec: OK')
